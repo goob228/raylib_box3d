@@ -76,8 +76,8 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\box.glb">
+    <CopyFileToFolders Include="..\thirdparty\lib\Debug\raylib.dll">
       <Filter>Файлы ресурсов</Filter>
-    </None>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>

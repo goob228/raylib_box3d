@@ -2,6 +2,7 @@
 #include "Playground.h"
 
 #include <box3d/box3d.h>
+#include <rlgl.h>
 
 
 void Object::update(Playground* playground)
@@ -28,7 +29,16 @@ void Object::updateMatrix()
 	_model.transform = MatrixMultiply(MatrixMultiply(QuaternionToMatrix(_rot), MatrixScale(_scale.x, _scale.y, _scale.z)), MatrixTranslate(_pos.x, _pos.y, _pos.z));
 }
 
-void Object::draw()
+void Object::draw(Playground* playground)
 {
 	DrawModel(_model, Vector3{0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+}
+
+void Object::unLoad()
+{
+	_model.materials[0].shader = Shader{ 0 };
+	_model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
+	UnloadMaterial(_model.materials[0]);
+	_model.materials[0].maps = NULL;
+	UnloadModel(_model);
 }

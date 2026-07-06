@@ -26,8 +26,8 @@ private:
 
 	bool _running = false;
 
-	int targetFPS = 60;
-	float deltaTime = 1.0f / (float)targetFPS;
+	int _targetFPS = 60;
+	float _deltaTime = 1.0f / (float)_targetFPS;
 
 
 };

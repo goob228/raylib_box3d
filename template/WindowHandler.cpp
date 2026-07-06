@@ -5,10 +5,7 @@
 
 
 
-WindowHandler::~WindowHandler()
-{
-	close();
-}
+
 
 void WindowHandler::init(int FPS)
 {
@@ -29,6 +26,7 @@ void WindowHandler::startFrame()
 
 void WindowHandler::endFrame()
 {
+	DrawFPS(1, 1);
 	EndDrawing();
 }
 

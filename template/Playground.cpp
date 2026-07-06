@@ -1,6 +1,7 @@
 #include "Playground.h"
 
 #include <box3d/box3d.h>
+#include <rlgl.h>
 
 #include "WindowHandler.h"
 #include "EventHandler.h"
@@ -77,10 +78,17 @@ void Playground::add_dyn_sphere()
 	_bodyCount++;
 }
 
-void Playground::init()
+void Playground::init(int targetFPS)
 {
+	_targetFPS = targetFPS;
+	_targetDeltaTime = 1.0f / (float)_targetFPS;
+
+	if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
+		TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
+
 	_camera.init();
 
+	//"Bricks_06-256x256.png"
 
 	b3WorldDef worldDef = b3DefaultWorldDef();
 	worldDef.gravity = b3Vec3{ 0.0f, -10.0f, 0.0f };
@@ -91,15 +99,29 @@ void Playground::init()
 	add_dyn_box();
 	add_dyn_sphere();
 	add_dyn_box2();
+	// "D:\GitHub\raylib\examples\shaders\resources\shaders\glsl330\tiling.fs"
+	_basicShader = LoadShader(0, TextFormat("D:/GitHub/raylib/examples/shaders/resources/shaders/glsl330/tiling.fs"));
+	float tiling[2] = { 5.0f, 5.0f };
+	SetShaderValue(_basicShader, GetShaderLocation(_basicShader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
+
+	_textures[_textureCount] = LoadTexture("res/Bricks_06-256x256.png");
+	_textureCount++;
+
+	_textures[_textureCount] = LoadTexture("res/Wood_17-256x256.png");
+	_textureCount++;
 
 	_objects[_objCount] = new Object();
-	_objects[_objCount]->_model = LoadModel("box.glb");
+	_objects[_objCount]->_model = LoadModel("res/box.obj"); 
+	_objects[_objCount]->_model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = _textures[1];
+	_objects[_objCount]->_model.materials[0].shader = _basicShader;
 	_objects[_objCount]->_physId = 2;
 	_objects[_objCount]->_type = OBJ_PROP;
 	_objCount++;
 
 	_objects[_objCount] = new Object();
-	_objects[_objCount]->_model = LoadModel("box.glb");
+	_objects[_objCount]->_model = LoadModel("res/box.obj");  
+	_objects[_objCount]->_model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = _textures[2];
+	_objects[_objCount]->_model.materials[0].shader = _basicShader;
 	_objects[_objCount]->_physId = 4;
 	_objects[_objCount]->_type = OBJ_PROP;
 	_objCount++;
@@ -111,6 +133,8 @@ void Playground::update(EventHandler* eventhandler)
 {
 	_camera.update();
 
+	b3World_Step(_worldId, _targetDeltaTime, 2);
+
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {
 			_objects[i]->update(this);
@@ -121,8 +145,8 @@ void Playground::update(EventHandler* eventhandler)
 void Playground::render(WindowHandler* windowhandler)
 {
 	_camera.startFrame();
+	BeginShaderMode(_basicShader);
 
-	b3World_Step(_worldId, 1.0f/60.0f, 2);
 
 	/*
 	{
@@ -142,12 +166,13 @@ void Playground::render(WindowHandler* windowhandler)
 
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {
-			_objects[i]->draw();
+			_objects[i]->draw(this);
 		}
 	}
 
 
 
+	EndShaderMode();
 	_camera.endFrame();
 }
 
@@ -156,6 +181,7 @@ void Playground::cleanUp()
 {
 	for (int i = 0; i < MAX_OBJECTS; i++) {
 		if (_objects[i] != nullptr) {
+			_objects[i]->unLoad();
 			delete _objects[i];
 			_objects[i] = nullptr;
 		}
@@ -166,5 +192,12 @@ void Playground::cleanUp()
 			b3DestroyBody(_bodies[i]);
 		}
 	}
+
+	for (int i = 0; i < MAX_TEXTURES; i++) {
+		if (_textures[i].id != rlGetTextureIdDefault()) rlUnloadTexture(_textures[i].id);
+		
+	}
+
+	UnloadShader(_basicShader);
 
 }

@@ -30,7 +30,9 @@ public:
 
 	void updateMatrix();
 
-	virtual void draw();
+	virtual void draw(Playground* playground);
+
+	void unLoad();
 
 protected:
 	Model _model;

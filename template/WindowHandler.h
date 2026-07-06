@@ -9,7 +9,7 @@ class WindowHandler
 {
 public:
 
-	~WindowHandler();
+
 
 	void init(int FPS);
 	void startFrame();

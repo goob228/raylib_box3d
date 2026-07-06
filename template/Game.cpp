@@ -55,8 +55,8 @@ void Game::startLoop()
 
 	_running = true;
 
-	_windowhandler->init(targetFPS);
-	_playground->init();
+	_windowhandler->init(_targetFPS);
+	_playground->init(_targetFPS);
 	
 
 	while (_running) {
@@ -75,8 +75,13 @@ void Game::startLoop()
 		_windowhandler->endFrame();
 
 	}
+
+	_playground->cleanUp();
+	_windowhandler->close();
 	
 	quit();
+
+
 
 	return;
 }
