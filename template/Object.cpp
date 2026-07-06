@@ -7,7 +7,7 @@
 
 void Object::update(Playground* playground)
 {
-	if (_type != OBJ_STATIC) {
+	if (_type != OBJ_STATIC && _type != OBJ_OBSTACLE) {
 		if (_physId != 0) {
 			b3BodyId b3id = playground->_bodies[_physId];
 			b3Vec3 position = b3Body_GetPosition(b3id);
@@ -26,19 +26,13 @@ void Object::update(Playground* playground)
 
 void Object::updateMatrix()
 {
-	_model.transform = MatrixMultiply(MatrixMultiply(QuaternionToMatrix(_rot), MatrixScale(_scale.x, _scale.y, _scale.z)), MatrixTranslate(_pos.x, _pos.y, _pos.z));
+	_transform = MatrixMultiply(MatrixMultiply(MatrixScale(_scale.x, _scale.y, _scale.z), QuaternionToMatrix(_rot)), MatrixTranslate(_pos.x, _pos.y, _pos.z));
 }
 
 void Object::draw(Playground* playground)
 {
-	DrawModel(_model, Vector3{0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	playground->_models[_modelId].transform = _transform;
+	playground->_models[_modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->_textures[_texId];
+	DrawModel(playground->_models[_modelId], Vector3{0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
-void Object::unLoad()
-{
-	_model.materials[0].shader = Shader{ 0 };
-	_model.materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
-	UnloadMaterial(_model.materials[0]);
-	_model.materials[0].maps = NULL;
-	UnloadModel(_model);
-}

@@ -10,13 +10,13 @@ typedef enum
 {
 	OBJ_NONE,
 	OBJ_STATIC,
+	OBJ_OBSTACLE,
 	OBJ_PROP,
 	OBJ_ENTITY,
 	OBJ_PLAYER,
 	OBJ_ENEMY,
 	OBJ_PROJECTILE,
-	OBJ_ITEM,
-	OBJ_OBSTACLE
+	OBJ_ITEM
 } ObjectType;
 
 class Playground;
@@ -31,11 +31,11 @@ public:
 	void updateMatrix();
 
 	virtual void draw(Playground* playground);
-
-	void unLoad();
+	
 
 protected:
-	Model _model;
+
+	Matrix _transform = MatrixIdentity();
 
 	Vector3 _pos = Vector3{ 0.0f, 0.0f, 0.0f };
 	Quaternion _rot = QuaternionIdentity();
@@ -44,7 +44,11 @@ protected:
 	bool _alive = true;
 	ObjectType _type = OBJ_NONE;
 
-	unsigned int _physId = 0;
+
+
+	int _physId = 0;
+	int _texId = 0;
+	int _modelId = 0;
 
 };
 
