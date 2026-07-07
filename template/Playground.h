@@ -3,6 +3,8 @@
 
 
 #include <box3d/box3d.h>
+#include <lua/lua.hpp>
+
 
 #include "EventHandler.h"
 #include "WindowHandler.h"
@@ -13,24 +15,6 @@
 #define MAX_OBJECTS 512
 #define MAX_TEXTURES 512
 #define MAX_MODELS 512
-
-#define MSA_MAX_NAME_LEN 32
-
-
-
-typedef enum ParseToken {
-	TOK_NONE,
-	TOK_END,
-	TOK_ADD_TEXTURE,
-	TOK_ADD_MODEL,
-	TOK_SET_TEXTURE,
-	TOK_SET_MODEL,
-	TOK_ADD_OBJECT,
-	TOK_SET_OBJ_TYPE,
-	TOK_END_PARSE,
-	TOK_LEN
-} ParseToken;
-
 
 
 
@@ -44,16 +28,19 @@ public:
 	void add_dyn_box2();
 	void add_dyn_sphere();
 
-	int add_object(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
+	int addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
 	void delete_object();
 
 	int addTexture(char const * fileName);
 
 	int addModel(char const* fileName);
 
-	void reserveNames();
-	int findIndex(char* name, char names_array[][MSA_MAX_NAME_LEN], int start, int len);
-	void parse(char* txt);
+
+
+	static int lua_addTexture(lua_State* L);
+	static int lua_addModel(lua_State* L);
+	static int lua_addObject(lua_State* L);
+	void parseLua();
 
 	void init(int targetFPS);
 	void render(WindowHandler* windowhandler);
@@ -64,10 +51,6 @@ public:
 	Object* _objects[MAX_OBJECTS] = { nullptr };
 	Texture2D _textures[MAX_TEXTURES] = { 0 };
 	Model _models[MAX_MODELS] = { 0 };
-
-	char _namesTokens[TOK_LEN][MSA_MAX_NAME_LEN] = { 0 };
-	char _namesTextures[MAX_TEXTURES][MSA_MAX_NAME_LEN] = { 0 };
-	char _namesModels[MAX_MODELS][MSA_MAX_NAME_LEN] = { 0 };
 
 	int _bodyCount = 1;
 	int _objCount = 1;
