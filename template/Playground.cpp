@@ -1,7 +1,9 @@
 #include "Playground.h"
 
 #include <box3d/box3d.h>
+#include <raylib.h>
 #include <rlgl.h>
+#include <lua/lua.hpp>
 
 #include "Helper.h"
 
@@ -10,7 +12,7 @@
 #include "Camera.h"
 #include "Object.h"
 
-#define MSA_MAX_TEXT 4096
+
 
 
 void Playground::add_stat_box()
@@ -81,7 +83,7 @@ void Playground::add_dyn_sphere()
 	_bodyCount++;
 }
 
-int Playground::add_object(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
+int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
 {
 	_objects[_objCount] = new Object();
 	_objects[_objCount]->_scale = scale;
@@ -166,163 +168,78 @@ int Playground::addModel(char const* fileName)
 	return 0;
 }
 
-void Playground::reserveNames()
+
+
+
+int Playground::lua_addTexture(lua_State* L)
 {
-	// Reserve names for parsing
+	Playground* pg = (Playground*)lua_touserdata(L, 1);
 	
-	msa_strcpy(_namesTokens[TOK_END],          "END"             );
-	msa_strcpy(_namesTokens[TOK_ADD_TEXTURE],  "ADD_TEXTURE"     );
-	msa_strcpy(_namesTokens[TOK_ADD_MODEL],    "ADD_MODEL"       );
-	msa_strcpy(_namesTokens[TOK_SET_TEXTURE],  "SET_TEXTURE"     );
-	msa_strcpy(_namesTokens[TOK_SET_MODEL],    "SET_MODEL"       );
-	msa_strcpy(_namesTokens[TOK_ADD_OBJECT],   "ADD_OBJECT"      );
-	msa_strcpy(_namesTokens[TOK_SET_OBJ_TYPE], "SET_OBJ_TYPE"    );
-	msa_strcpy(_namesTokens[TOK_END_PARSE],    "END_PARSE"       );
-	
-	
+	pg->addTexture(lua_tostring(L, 2));
+	int idx = pg->_textureCount - 1;
+	lua_pushnumber(L, idx);
+
+	return 1;
 }
 
-int Playground::findIndex(char* name, char names_array[][MSA_MAX_NAME_LEN], int start, int len)
+int Playground::lua_addModel(lua_State* L)
 {
-	for (int i = start; i < len; i++) {
-		if (TextIsEqual(name, names_array[i])) {
-			return i;
-		}
-	}
+	Playground* pg = (Playground*)lua_touserdata(L, 1);
 
-	return 0;
+	pg->addModel(lua_tostring(L, 2));
+
+	int idx = pg->_modelCount - 1;
+	lua_pushnumber(L, idx);
+
+	return 1;
 }
 
-void Playground::parse(char* txt)
+int Playground::lua_addObject(lua_State* L)
 {
+	Playground* pg = (Playground*)lua_touserdata(L, 1);
 
-	char line[128] = { 0 };
-	int counter = 0;
+	int texId = lua_tonumber(L, 2);
+	int modelId = lua_tonumber(L, 3);
+	ObjectType type = (ObjectType)(int)lua_tonumber(L, 4);
+	float px = (float)lua_tonumber(L, 5);
+	float py = (float)lua_tonumber(L, 6);
+	float pz = (float)lua_tonumber(L, 7);
+	float sx = (float)lua_tonumber(L, 8);
+	float sy = (float)lua_tonumber(L, 9);
+	float sz = (float)lua_tonumber(L, 10);
 
-	ParseToken cur_token = TOK_NONE;
+	pg->addObject(Vector3{ px, py, pz}, Vector3{ sx, sy, sz}, texId, modelId, type);
 
-	int stringed = 0;
-	int comented = 0;
-
-
-	int modelId = 0;
-	int texId = 0;
-	ObjectType type = OBJ_NONE;
-
-	char objTypeNames[OBJ_LEN][MSA_MAX_NAME_LEN] = {
-		"NONE",
-		"STATIC",
-		"OBSTACLE",
-		"PROP",
-		"ENTITY",
-		"PLAYER",
-		"ENEMY",
-		"PROJECTILE",
-		"ITEM"
-	};
-
-	for (int i = 0; i < MSA_MAX_TEXT; i++) {
-		if (txt[i] == '\0') break;
-		if (txt[i] == '#')
-		{
-			comented = 1;
-		}
-
-		if (txt[i] == '\n')
-		{
-			comented = 0;
-		}
-
-		if (comented != 0) continue;
-
-		if (txt[i] == '\n' || (txt[i] == ' ' && stringed == 0) || (txt[i] == '"' && stringed == 1)) {
-			line[counter] = '\0';
-			counter++;
-
-			
-
-			if (counter > 1) {
-
-				if (cur_token == TOK_ADD_TEXTURE) {
-					if (stringed == 0) {
-						msa_strcpy(_namesTextures[_textureCount], line);
-					}
-					else if (stringed == 1) {
-						addTexture(line);
-					}
-				}
-
-				if (cur_token == TOK_ADD_MODEL) {
-					if (stringed == 0) {
-						msa_strcpy(_namesModels[_modelCount], line);
-					}
-					else if (stringed == 1) {
-						addModel(line);
-					}
-				}
-
-				if (cur_token == TOK_SET_TEXTURE) {
-					texId = findIndex(line, _namesTextures, 1, _textureCount);
-					cur_token = TOK_NONE;
-				}
-
-				if (cur_token == TOK_SET_MODEL) {
-					modelId = findIndex(line, _namesModels, 1, _modelCount);
-					cur_token = TOK_NONE;
-				}
-
-				if (cur_token == TOK_SET_OBJ_TYPE) {
-					type = (ObjectType)findIndex(line, objTypeNames, 1, (int)OBJ_LEN);
-					cur_token = TOK_NONE;
-				}
-
-				if (cur_token == TOK_ADD_OBJECT) {
-					add_object(Vector3{ 6.0f, 10.0f, 9.0f }, Vector3One(), texId, modelId, type);
-					texId = 0;
-					modelId = 0;
-					type = OBJ_NONE;
-
-					cur_token = TOK_NONE;
-				}
-
-				int int_token = findIndex(line, _namesTokens, (int)TOK_END, (int)TOK_LEN);
-				if (int_token != 0) {
-					cur_token = (ParseToken)int_token;
-					if (cur_token == TOK_END) {
-						cur_token = TOK_NONE;
-						stringed = 0;
-					}
-				}
-			}
-
-			counter = 0;
+	return 1;
+}
 
 
-		}
+void Playground::parseLua()
+{
+	char comand[] = "a = 7 + 11";
+	lua_State* L = luaL_newstate();
+	luaL_openlibs(L);
 
-		else if (msa_isalpha(txt[i]) || msa_isdigit(txt[i]) || (txt[i] == '_') || (stringed == 1 && txt[i] != '"'))
-		{
-			line[counter] = txt[i];
-			counter++;
-		}
 
-		if (txt[i] == '"')
-		{
-			if (stringed == 0)
-				stringed = 1;
-			else
-				stringed = 0;
-		}
+	lua_pushlightuserdata(L, this);
+	lua_setglobal(L, "pg");
 
-		
+	lua_register(L, "addTexture", lua_addTexture);
+	lua_register(L, "addModel", lua_addModel);
+	lua_register(L, "addObject", lua_addObject);
+
+	int r = luaL_dofile(L, "D:/Github/raylib_box3d/template/res/textures.lua");
+
+	if (r != LUA_OK){
+		TraceLog(LOG_ERROR, "Lua failed: %s", lua_tostring(L, -1));
 	}
+
+	lua_close(L);
 
 }
 
 void Playground::init(int targetFPS)
 {
-
-	reserveNames();
 
 	_targetFPS = targetFPS;
 	_targetDeltaTime = 1.0f / (float)_targetFPS;
@@ -344,25 +261,8 @@ void Playground::init(int targetFPS)
 	float tiling[2] = { 1.0f, 1.0f };
 	SetShaderValue(_basicShader, GetShaderLocation(_basicShader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
-	char* txt = LoadFileText("res/textures.def");
 
-	parse(txt);
-
-
-	add_object(Vector3{ 0.0f, -10.0f, 0.0f }, Vector3{ 50.0f, 10.0f, 50.0f }, 2, 1, OBJ_OBSTACLE);
-
-	add_object(Vector3{ 0.0f, 10.0f, 0.0f }, Vector3{ 1.0f, 1.0f, 1.0f }, 1, 1, OBJ_PROP);
-
-	add_object(Vector3{ -0.6f, 20.0f, -0.6f }, Vector3One(), 3, 2, OBJ_PROP);
-
-	add_object(Vector3{ -3.6f, 40.0f, -3.6f }, Vector3One(), 3, 2, OBJ_PROP);
-
-	add_object(Vector3{ 0.0f, 10.0f, 6.0f }, Vector3One(), 4, 3, OBJ_PROP);
-	
-
-	
-
-	//add_object(Vector3{ 6.0f, 10.0f, 9.0f }, Vector3One(), _textureCount-1, _modelCount-1, OBJ_PROP);
+	parseLua();
 
 }
 
@@ -385,9 +285,9 @@ void Playground::render(WindowHandler* windowhandler)
 	_camera.startFrame();
 	BeginShaderMode(_basicShader);
 	//DrawPlane(Vector3{ 0.0f, 0.0f, 0.0f }, Vector2{ 32.0f, 32.0f }, LIGHTGRAY); // Draw ground
-	DrawCube(Vector3{ -16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, BLUE);     // Draw a blue wall
-	DrawCube(Vector3{ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
-	DrawCube(Vector3{ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);
+	//DrawCube(Vector3{ -16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, BLUE);     // Draw a blue wall
+	//DrawCube(Vector3{ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
+	//DrawCube(Vector3{ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);
 
 	/*
 	{
