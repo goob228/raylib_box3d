@@ -1,0 +1,42 @@
+############# OBJ TYPES ###############
+#NONE,
+#STATIC,
+#OBSTACLE,
+#PROP,
+#ENTITY,
+#PLAYER,
+#ENEMY,
+#PROJECTILE,
+#ITEM
+
+
+
+ADD_TEXTURE
+1        "res/Bricks_06-128x128.png"
+wood     "res/Wood_17-128x128.png"
+1        "res/car3_red.png"
+1        "res/FN_FAL_texture.png"
+penis    "D:\GitHub\raylib_box3d\assets\PSX_Style_Cars_by_GGBot_(August2023)\Car 08\Car8_mail.png"
+END
+
+
+ADD_MODEL
+box      "res/box.obj"
+1        "res/car3.obj"
+1        "res/FN_FAL.obj"
+car3     "res/car3.obj"
+car8     "D:\GitHub\raylib_box3d\assets\PSX_Style_Cars_by_GGBot_(August2023)\Car 08\Car8.obj"
+END
+
+
+SET_TEXTURE penis
+SET_MODEL car8
+SET_OBJ_TYPE PROP
+ADD_OBJECT
+
+SET_TEXTURE wood
+SET_MODEL box
+SET_OBJ_TYPE OBSTACLE
+ADD_OBJECT
+
+END_PARSE

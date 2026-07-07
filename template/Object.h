@@ -16,7 +16,8 @@ typedef enum
 	OBJ_PLAYER,
 	OBJ_ENEMY,
 	OBJ_PROJECTILE,
-	OBJ_ITEM
+	OBJ_ITEM,
+	OBJ_LEN
 } ObjectType;
 
 class Playground;

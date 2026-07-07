@@ -3,11 +3,14 @@
 #include <box3d/box3d.h>
 #include <rlgl.h>
 
+#include "Helper.h"
+
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Camera.h"
 #include "Object.h"
 
+#define MSA_MAX_TEXT 4096
 
 
 void Playground::add_stat_box()
@@ -88,7 +91,7 @@ int Playground::add_object(Vector3 pos, Vector3 scale, int texId, int modelId, O
 	_objects[_objCount]->_type = type;
 	_objects[_objCount]->updateMatrix();
 
-	if (type == OBJ_PROP) {
+	if (type == OBJ_PROP || type == OBJ_OBSTACLE) {
 		BoundingBox bb = GetModelBoundingBox(_models[modelId]);
 
 		b3Transform transform = { 0 };
@@ -102,7 +105,8 @@ int Playground::add_object(Vector3 pos, Vector3 scale, int texId, int modelId, O
 		transform.q.s = q.w;
 		
 		b3BodyDef bodyDef = b3DefaultBodyDef();
-		bodyDef.type = b3_dynamicBody;
+		if (type == OBJ_PROP)
+			bodyDef.type = b3_dynamicBody;
 		bodyDef.position = b3Vec3{ pos.x, pos.y, pos.z };
 		b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
 
@@ -120,37 +124,6 @@ int Playground::add_object(Vector3 pos, Vector3 scale, int texId, int modelId, O
 		_bodyCount++;
 	}
 
-	if (type == OBJ_OBSTACLE) {
-		BoundingBox bb = GetModelBoundingBox(_models[modelId]);
-
-		b3Transform transform = { 0 };
-		transform.p.x = (bb.max.x + bb.min.x) * scale.x / 2.0f;
-		transform.p.y = (bb.max.y + bb.min.y) * scale.y / 2.0f;
-		transform.p.z = (bb.max.z + bb.min.z) * scale.z / 2.0f;
-		Quaternion q = QuaternionIdentity();
-		transform.q.v.x = q.x;
-		transform.q.v.y = q.y;
-		transform.q.v.z = q.z;
-		transform.q.s = q.w;
-
-		b3BodyDef bodyDef = b3DefaultBodyDef();
-		bodyDef.position = b3Vec3{ pos.x, pos.y, pos.z };
-		b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
-
-		b3BoxHull dynamicBox = b3MakeBoxHull((bb.max.x - bb.min.x) * scale.x / 2.0f,
-			(bb.max.y - bb.min.y) * scale.y / 2.0f,
-			(bb.max.z - bb.min.z) * scale.z / 2.0f);
-
-		b3ShapeDef shapeDef = b3DefaultShapeDef();
-		shapeDef.density = 1.0f;
-		shapeDef.baseMaterial.friction = 0.3f;
-
-		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, b3Vec3{ 1.0f,1.0f,1.0f });
-		_bodies[_bodyCount] = bodyId;
-		_objects[_objCount]->_physId = _bodyCount;
-		_bodyCount++;
-	}
-
 	_objCount += 1;
 
 	return _objCount-1;
@@ -159,11 +132,198 @@ int Playground::add_object(Vector3 pos, Vector3 scale, int texId, int modelId, O
 
 void Playground::delete_object()
 {
+	int i = _objCount-1;
+	if (_objects[i] != nullptr) {
+		int e = _objects[i]->_physId;
+		if (b3Body_IsValid(_bodies[e])) {
+			b3DestroyBody(_bodies[e]);
+		}
+
+		_bodyCount--;
+
+		delete _objects[i];
+		_objects[i] = nullptr;
+
+		
+	}
+	_objCount--;
+}
+
+int Playground::addTexture(char const * fileName)
+{
+	_textures[_textureCount] = LoadTexture(fileName);
+	_textureCount++;
+
+	return 0;
+}
+
+int Playground::addModel(char const* fileName)
+{
+	_models[_modelCount] = LoadModel(fileName);
+	_models[_modelCount].materials[0].shader = _basicShader;
+	_modelCount++;
+
+	return 0;
+}
+
+void Playground::reserveNames()
+{
+	// Reserve names for parsing
+	
+	msa_strcpy(_namesTokens[TOK_END],          "END"             );
+	msa_strcpy(_namesTokens[TOK_ADD_TEXTURE],  "ADD_TEXTURE"     );
+	msa_strcpy(_namesTokens[TOK_ADD_MODEL],    "ADD_MODEL"       );
+	msa_strcpy(_namesTokens[TOK_SET_TEXTURE],  "SET_TEXTURE"     );
+	msa_strcpy(_namesTokens[TOK_SET_MODEL],    "SET_MODEL"       );
+	msa_strcpy(_namesTokens[TOK_ADD_OBJECT],   "ADD_OBJECT"      );
+	msa_strcpy(_namesTokens[TOK_SET_OBJ_TYPE], "SET_OBJ_TYPE"    );
+	msa_strcpy(_namesTokens[TOK_END_PARSE],    "END_PARSE"       );
+	
+	
+}
+
+int Playground::findIndex(char* name, char names_array[][MSA_MAX_NAME_LEN], int start, int len)
+{
+	for (int i = start; i < len; i++) {
+		if (TextIsEqual(name, names_array[i])) {
+			return i;
+		}
+	}
+
+	return 0;
+}
+
+void Playground::parse(char* txt)
+{
+
+	char line[128] = { 0 };
+	int counter = 0;
+
+	ParseToken cur_token = TOK_NONE;
+
+	int stringed = 0;
+	int comented = 0;
+
+
+	int modelId = 0;
+	int texId = 0;
+	ObjectType type = OBJ_NONE;
+
+	char objTypeNames[OBJ_LEN][MSA_MAX_NAME_LEN] = {
+		"NONE",
+		"STATIC",
+		"OBSTACLE",
+		"PROP",
+		"ENTITY",
+		"PLAYER",
+		"ENEMY",
+		"PROJECTILE",
+		"ITEM"
+	};
+
+	for (int i = 0; i < MSA_MAX_TEXT; i++) {
+		if (txt[i] == '\0') break;
+		if (txt[i] == '#')
+		{
+			comented = 1;
+		}
+
+		if (txt[i] == '\n')
+		{
+			comented = 0;
+		}
+
+		if (comented != 0) continue;
+
+		if (txt[i] == '\n' || (txt[i] == ' ' && stringed == 0) || (txt[i] == '"' && stringed == 1)) {
+			line[counter] = '\0';
+			counter++;
+
+			
+
+			if (counter > 1) {
+
+				if (cur_token == TOK_ADD_TEXTURE) {
+					if (stringed == 0) {
+						msa_strcpy(_namesTextures[_textureCount], line);
+					}
+					else if (stringed == 1) {
+						addTexture(line);
+					}
+				}
+
+				if (cur_token == TOK_ADD_MODEL) {
+					if (stringed == 0) {
+						msa_strcpy(_namesModels[_modelCount], line);
+					}
+					else if (stringed == 1) {
+						addModel(line);
+					}
+				}
+
+				if (cur_token == TOK_SET_TEXTURE) {
+					texId = findIndex(line, _namesTextures, 1, _textureCount);
+					cur_token = TOK_NONE;
+				}
+
+				if (cur_token == TOK_SET_MODEL) {
+					modelId = findIndex(line, _namesModels, 1, _modelCount);
+					cur_token = TOK_NONE;
+				}
+
+				if (cur_token == TOK_SET_OBJ_TYPE) {
+					type = (ObjectType)findIndex(line, objTypeNames, 1, (int)OBJ_LEN);
+					cur_token = TOK_NONE;
+				}
+
+				if (cur_token == TOK_ADD_OBJECT) {
+					add_object(Vector3{ 6.0f, 10.0f, 9.0f }, Vector3One(), texId, modelId, type);
+					texId = 0;
+					modelId = 0;
+					type = OBJ_NONE;
+
+					cur_token = TOK_NONE;
+				}
+
+				int int_token = findIndex(line, _namesTokens, (int)TOK_END, (int)TOK_LEN);
+				if (int_token != 0) {
+					cur_token = (ParseToken)int_token;
+					if (cur_token == TOK_END) {
+						cur_token = TOK_NONE;
+						stringed = 0;
+					}
+				}
+			}
+
+			counter = 0;
+
+
+		}
+
+		else if (msa_isalpha(txt[i]) || msa_isdigit(txt[i]) || (txt[i] == '_') || (stringed == 1 && txt[i] != '"'))
+		{
+			line[counter] = txt[i];
+			counter++;
+		}
+
+		if (txt[i] == '"')
+		{
+			if (stringed == 0)
+				stringed = 1;
+			else
+				stringed = 0;
+		}
+
+		
+	}
 
 }
 
 void Playground::init(int targetFPS)
 {
+
+	reserveNames();
+
 	_targetFPS = targetFPS;
 	_targetDeltaTime = 1.0f / (float)_targetFPS;
 
@@ -184,47 +344,10 @@ void Playground::init(int targetFPS)
 	float tiling[2] = { 1.0f, 1.0f };
 	SetShaderValue(_basicShader, GetShaderLocation(_basicShader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
-	_textures[_textureCount] = LoadTexture("res/Bricks_06-128x128.png");
-	_textureCount++;
+	char* txt = LoadFileText("res/textures.def");
 
-	_textures[_textureCount] = LoadTexture("res/Wood_17-128x128.png");
-	_textureCount++;
+	parse(txt);
 
-	_textures[_textureCount] = LoadTexture("res/car3_red.png");
-	_textureCount++;
-
-	_textures[_textureCount] = LoadTexture("res/FN_FAL_texture.png");
-	_textureCount++;
-
-	_models[_modelCount] = LoadModel("res/box.obj");
-	_models[_modelCount].materials[0].shader = _basicShader;
-	_modelCount++;
-
-	_models[_modelCount] = LoadModel("res/car3.obj");
-	_models[_modelCount].materials[0].shader = _basicShader;
-	_modelCount++;
-
-	_models[_modelCount] = LoadModel("res/FN_FAL.obj");
-	_models[_modelCount].materials[0].shader = _basicShader;
-	_modelCount++;
-
-	/*
-	_objects[_objCount] = new Object();
-	_objects[_objCount]->_modelId = 1;
-	_objects[_objCount]->_texId = 1;
-	_objects[_objCount]->_physId = 2;
-	_objects[_objCount]->_type = OBJ_PROP;
-	_objCount++;
-	
-
-	
-	_objects[_objCount] = new Object();
-	_objects[_objCount]->_modelId = 2;
-	_objects[_objCount]->_texId = 3;-+
-	_objects[_objCount]->_physId = 3;
-	_objects[_objCount]->_type = OBJ_PROP;
-	_objCount++;
-	*/
 
 	add_object(Vector3{ 0.0f, -10.0f, 0.0f }, Vector3{ 50.0f, 10.0f, 50.0f }, 2, 1, OBJ_OBSTACLE);
 
@@ -234,7 +357,12 @@ void Playground::init(int targetFPS)
 
 	add_object(Vector3{ -3.6f, 40.0f, -3.6f }, Vector3One(), 3, 2, OBJ_PROP);
 
-	add_object(Vector3{ 0.0f, 10.0f, 4.0f }, Vector3One(), 4, 3, OBJ_PROP);
+	add_object(Vector3{ 0.0f, 10.0f, 6.0f }, Vector3One(), 4, 3, OBJ_PROP);
+	
+
+	
+
+	//add_object(Vector3{ 6.0f, 10.0f, 9.0f }, Vector3One(), _textureCount-1, _modelCount-1, OBJ_PROP);
 
 }
 
@@ -243,6 +371,7 @@ void Playground::update(EventHandler* eventhandler)
 	_camera.update();
 
 	b3World_Step(_worldId, _targetDeltaTime, 2);
+
 
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {
@@ -286,6 +415,7 @@ void Playground::render(WindowHandler* windowhandler)
 
 	EndShaderMode();
 	_camera.endFrame();
+
 }
 
 
