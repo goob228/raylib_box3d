@@ -1,6 +1,7 @@
 #ifndef PLAYGROUND_H
 #define PLAYGROUND_H
 
+#include <cstdint>
 
 #include <box3d/box3d.h>
 #include <lua/lua.hpp>
@@ -16,6 +17,7 @@
 #define MAX_TEXTURES 512
 #define MAX_MODELS 512
 
+#define MAX_LINES 64
 
 
 class Playground
@@ -37,11 +39,6 @@ public:
 
 
 
-	static int lua_addTexture(lua_State* L);
-	static int lua_addModel(lua_State* L);
-	static int lua_addObject(lua_State* L);
-	void parseLua();
-
 	void init(int targetFPS);
 	void render(WindowHandler* windowhandler);
 	void cleanUp();
@@ -51,6 +48,8 @@ public:
 	Object* _objects[MAX_OBJECTS] = { nullptr };
 	Texture2D _textures[MAX_TEXTURES] = { 0 };
 	Model _models[MAX_MODELS] = { 0 };
+
+	b3Pos _lines[MAX_LINES];
 
 	int _bodyCount = 1;
 	int _objCount = 1;
@@ -64,6 +63,9 @@ public:
 
 	int _targetFPS;
 	float _targetDeltaTime;
+
+
+	uint16_t _keys;
 
 };
 

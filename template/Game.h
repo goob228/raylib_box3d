@@ -4,6 +4,7 @@
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Playground.h"
+#include "LuaBind.h"
 
 
 class Game
@@ -23,6 +24,7 @@ private:
 	WindowHandler* _windowhandler;
 	EventHandler* _eventhandler;
 	Playground* _playground;
+	lua_State* L;
 
 	bool _running = false;
 

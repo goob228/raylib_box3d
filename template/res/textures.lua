@@ -1,5 +1,14 @@
 -- Pidorases
 
+k = {
+    W = 0,
+    S = 1,
+    D = 2,
+    A = 3,
+    SPACE = 4
+}
+
+
 types = {
 	NONE = 0,
 	STATIC = 1,
@@ -77,7 +86,7 @@ addObject(pg, textures["fn_fal_texture"], models.fn_fal, types.PROP, 0.0, 10.0, 
 
 addObject(pg, textures["car1_blue"], models.car1, types.PROP, 0.0, 10.0, -20.0, 1.0, 1.0, 1.0);
 
-addObject(pg, textures["Wood_17"], models.box, types.OBSTACLE, 0.0, -10.0, 0.0, 50.0, 10.0, 50.0);
+addObject(pg, textures["Bricks_06"], models.box, types.OBSTACLE, 0.0, -10.0, 0.0, 50.0, 10.0, 50.0);
 
 addObject(pg, textures["car5_red"], models.car5, types.PROP, -30.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car5_taxi"], models.car5_taxi, types.PROP, -25.0, 10.0, 10.0, 1.0, 1.0, 1.0);
@@ -85,9 +94,32 @@ addObject(pg, textures["car4_orange"], models.car4, types.PROP, -20.0, 10.0, 10.
 addObject(pg, textures["car1_blue"], models.car1, types.PROP, -15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car2_blue"], models.car2, types.PROP, -10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car3_red"], models.car3, types.PROP, -5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
-addObject(pg, textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 10.0, 1.0, 1.0, 1.0);
+car = addObject(pg, textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 20.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car7_green"], models.car7, types.PROP, 5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car8_mail"], models.car8, types.PROP, 10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car8_purple"], models.car8, types.PROP, 15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["car6_mud"], models.car6, types.PROP, 20.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(pg, textures["wheel"], models.wheel, types.PROP, 25.0, 10.0, 10.0, 1.0, 1.0, 1.0);
+
+
+convertToCar(pg, car)
+
+
+carptr = getObjectPointer(pg, car)
+
+setDamping(carptr, 10.5)
+
+
+
+
+function update()
+
+
+    if isKeyPressed(eventhandler, k.SPACE) then
+        addForceToObj(carptr, pg, 2000.0, 0.0, 1000.0)
+    end
+    
+    return
+end
+
+

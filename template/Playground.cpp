@@ -5,12 +5,13 @@
 #include <rlgl.h>
 #include <lua/lua.hpp>
 
-#include "Helper.h"
 
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Camera.h"
 #include "Object.h"
+
+#include "Prefabs.h"
 
 
 
@@ -168,76 +169,6 @@ int Playground::addModel(char const* fileName)
 	return 0;
 }
 
-
-
-
-int Playground::lua_addTexture(lua_State* L)
-{
-	Playground* pg = (Playground*)lua_touserdata(L, 1);
-	
-	pg->addTexture(lua_tostring(L, 2));
-	int idx = pg->_textureCount - 1;
-	lua_pushnumber(L, idx);
-
-	return 1;
-}
-
-int Playground::lua_addModel(lua_State* L)
-{
-	Playground* pg = (Playground*)lua_touserdata(L, 1);
-
-	pg->addModel(lua_tostring(L, 2));
-
-	int idx = pg->_modelCount - 1;
-	lua_pushnumber(L, idx);
-
-	return 1;
-}
-
-int Playground::lua_addObject(lua_State* L)
-{
-	Playground* pg = (Playground*)lua_touserdata(L, 1);
-
-	int texId = lua_tonumber(L, 2);
-	int modelId = lua_tonumber(L, 3);
-	ObjectType type = (ObjectType)(int)lua_tonumber(L, 4);
-	float px = (float)lua_tonumber(L, 5);
-	float py = (float)lua_tonumber(L, 6);
-	float pz = (float)lua_tonumber(L, 7);
-	float sx = (float)lua_tonumber(L, 8);
-	float sy = (float)lua_tonumber(L, 9);
-	float sz = (float)lua_tonumber(L, 10);
-
-	pg->addObject(Vector3{ px, py, pz}, Vector3{ sx, sy, sz}, texId, modelId, type);
-
-	return 1;
-}
-
-
-void Playground::parseLua()
-{
-	char comand[] = "a = 7 + 11";
-	lua_State* L = luaL_newstate();
-	luaL_openlibs(L);
-
-
-	lua_pushlightuserdata(L, this);
-	lua_setglobal(L, "pg");
-
-	lua_register(L, "addTexture", lua_addTexture);
-	lua_register(L, "addModel", lua_addModel);
-	lua_register(L, "addObject", lua_addObject);
-
-	int r = luaL_dofile(L, "D:/Github/raylib_box3d/template/res/textures.lua");
-
-	if (r != LUA_OK){
-		TraceLog(LOG_ERROR, "Lua failed: %s", lua_tostring(L, -1));
-	}
-
-	lua_close(L);
-
-}
-
 void Playground::init(int targetFPS)
 {
 
@@ -257,17 +188,16 @@ void Playground::init(int targetFPS)
 
 	
 	add_dyn_sphere();
-	_basicShader = LoadShader(0, TextFormat("D:/GitHub/raylib/examples/shaders/resources/shaders/glsl330/tiling.fs"));
-	float tiling[2] = { 1.0f, 1.0f };
-	SetShaderValue(_basicShader, GetShaderLocation(_basicShader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
+	_basicShader = LoadShader(0, "");
 
-
-	parseLua();
 
 }
 
 void Playground::update(EventHandler* eventhandler)
 {
+
+	_keys = eventhandler->_keys;
+
 	_camera.update();
 
 	b3World_Step(_worldId, _targetDeltaTime, 2);
@@ -311,6 +241,21 @@ void Playground::render(WindowHandler* windowhandler)
 		}
 	}
 
+	Vector3 spos = Vector3{ 0 };
+	Vector3 epos = Vector3{ 0 };
+
+	for (int i = 0; i < MAX_LINES/2-1; i++) {
+		spos.x = _lines[i * 2 + 0].x;
+		spos.y = _lines[i * 2 + 0].y;
+		spos.z = _lines[i * 2 + 0].z;
+
+		epos.x = _lines[i * 2 + 1].x;
+		epos.y = _lines[i * 2 + 1].y;
+		epos.z = _lines[i * 2 + 1].z;
+		
+		DrawLine3D(spos, epos, MAROON);
+
+	}
 
 
 	EndShaderMode();
@@ -321,6 +266,7 @@ void Playground::render(WindowHandler* windowhandler)
 
 void Playground::cleanUp()
 {
+
 	for (int i = 0; i < MAX_OBJECTS; i++) {
 		if (_objects[i] != nullptr) {
 			//_objects[i]->unLoad();
