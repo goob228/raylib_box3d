@@ -3,6 +3,8 @@
 
 #include "WindowHandler.h"
 #include "EventHandler.h"
+#include "Playground.h"
+#include "LuaBind.h"
 
 
 Game::Game()
@@ -11,11 +13,19 @@ Game::Game()
 	_windowhandler = nullptr;
 	_eventhandler = nullptr;
 	_playground = nullptr;
+	L = nullptr;
 
 }
 
 void Game::quit()
 {
+
+	_playground->cleanUp();
+	_windowhandler->close();
+
+	lua_close(L);
+
+
 	_running = false;
 	delete _eventhandler;
 	delete _windowhandler;
@@ -24,25 +34,28 @@ void Game::quit()
 
 int Game::init()
 {
-	if (_eventhandler) delete _eventhandler;
 
 	_eventhandler = new EventHandler();
 
 	if (!_eventhandler) return 1;
 
 
-	if (_windowhandler) delete _windowhandler;
-
 	_windowhandler = new WindowHandler();
 
 	if (!_windowhandler) return 1;
 
-
-	if (_playground) delete _playground;
-
 	_playground = new Playground();
 
 	if (!_playground) return 1;
+
+	_running = true;
+
+	_windowhandler->init(_targetFPS);
+	_playground->init(_targetFPS);
+
+	L = luaL_newstate();
+
+	Lua::init(L, _playground, _eventhandler);
 
 	return 0;
 
@@ -51,12 +64,11 @@ int Game::init()
 
 void Game::startLoop()
 {
+
 	if (init()) return;
 
-	_running = true;
+	
 
-	_windowhandler->init(_targetFPS);
-	_playground->init(_targetFPS);
 	
 
 	while (_running) {
@@ -67,6 +79,14 @@ void Game::startLoop()
 			_running = false;
 		}
 
+		if (_eventhandler->_keys & EH_K_RESTART) {
+			quit();
+			if (init()) return;
+			continue;
+		}
+
+		lua_getglobal(L, "update");
+		lua_pcall(L, 0, 0, 0);
 
 		_playground->update(_eventhandler);
 		
@@ -76,11 +96,9 @@ void Game::startLoop()
 
 	}
 
-	_playground->cleanUp();
-	_windowhandler->close();
+	
 	
 	quit();
-
 
 
 	return;

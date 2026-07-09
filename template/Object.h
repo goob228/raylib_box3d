@@ -34,7 +34,7 @@ public:
 	virtual void draw(Playground* playground);
 	
 
-protected:
+//protected:
 
 	Matrix _transform = MatrixIdentity();
 

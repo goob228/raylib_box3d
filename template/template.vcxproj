@@ -152,27 +152,23 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="Enemy.cpp" />
-    <ClCompile Include="Entity.cpp" />
     <ClCompile Include="EventHandler.cpp" />
     <ClCompile Include="Game.cpp" />
-    <ClCompile Include="Helper.cpp" />
+    <ClCompile Include="LuaBind.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="Playground.cpp" />
+    <ClCompile Include="Prefabs.cpp" />
     <ClCompile Include="WindowHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="Enemy.h" />
-    <ClInclude Include="Entity.h" />
     <ClInclude Include="EventHandler.h" />
     <ClInclude Include="Game.h" />
-    <ClInclude Include="Helper.h" />
-    <ClInclude Include="MathUtil.h" />
+    <ClInclude Include="LuaBind.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Playground.h" />
+    <ClInclude Include="Prefabs.h" />
     <ClInclude Include="WindowHandler.h" />
   </ItemGroup>
   <ItemGroup>
