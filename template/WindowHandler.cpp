@@ -9,6 +9,7 @@
 
 void WindowHandler::init(int FPS)
 {
+	SetConfigFlags(FLAG_VSYNC_HINT);
 	InitWindow(screenWidth, screenHeight, "template");
 
 	SetTargetFPS(FPS);

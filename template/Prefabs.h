@@ -6,7 +6,31 @@
 #include <box3d/box3d.h>
 #include <lua/lua.hpp>
 
-#define CAR_WHEEL_COUNT 4
+#include "Animation.h"
+
+#define CAR_WHEEL_COUNT 8
+
+class Car;
+
+class Wheel : public Object
+{
+public:
+
+	static Wheel* create(Object* object);
+
+	void update(Playground* playground) override;
+
+	b3Vec3 _defaultPos = { 0 };
+
+	Car* _car = nullptr;
+
+	
+	float _springLen = 0.0f;
+	float _prevHeight = 0.0f;
+	float _angle = 0.0f;
+
+	float _weight = 60.0f;
+};
 
 
 class Car : public Object
@@ -17,23 +41,33 @@ public:
 
 	void update(Playground* playground) override;
 
-
+	void steer(float angleDeg);
 	
 
 
-	float _wheelHeight = 0.5f;
+	float _springLen = 1.0f;
 
 	float _springStiffness = 800.0f;
 
 	float _springDamping = 0.9f;
 
-	float _tireFriction = 0.7f;
+	float _tireFriction = 0.8f;
 
-	b3Vec3 _wheelPoses[CAR_WHEEL_COUNT] = { 0 };
+	
 
-	float _prevHeight[CAR_WHEEL_COUNT] = { _wheelHeight,_wheelHeight,_wheelHeight,_wheelHeight };
-	float _wheelAngel[CAR_WHEEL_COUNT] = { 0 };
+	bool _accelerating = false;
+	bool _braking = false;
+	LookUpCurve _torqueCurve = { 0 };
+	float _torque = 3000.0f;
+	float _maxSpeed = 300.0f;
+
+	Wheel* _wheels[CAR_WHEEL_COUNT] = { 0 };
+
+	int _wheelCount = 0;
 
 };
+
+
+
 
 #endif

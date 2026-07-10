@@ -9,6 +9,7 @@
 typedef enum 
 {
 	OBJ_NONE,
+	OBJ_EMPTY,
 	OBJ_STATIC,
 	OBJ_OBSTACLE,
 	OBJ_PROP,
@@ -32,6 +33,8 @@ public:
 	void updateMatrix();
 
 	virtual void draw(Playground* playground);
+
+	void setParent(Object* object);
 	
 
 //protected:
@@ -45,7 +48,7 @@ public:
 	bool _alive = true;
 	ObjectType _type = OBJ_NONE;
 
-
+	Object* _parent;
 
 	int _physId = 0;
 	int _texId = 0;

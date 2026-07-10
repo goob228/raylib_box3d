@@ -19,9 +19,10 @@ public:
 
 	void processInput();
 
-	uint16_t _keys;
-	uint16_t _pressedKeys;
-
+	uint16_t _keys = 0;
+	uint16_t _pressedKeys = 0;
+	float _mx = 0.0f;;
+	float _my = 0.0f;
 };
 
 

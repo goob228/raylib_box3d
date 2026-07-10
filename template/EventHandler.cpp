@@ -26,4 +26,10 @@ void EventHandler::processInput()
 	if (IsKeyPressed(KEY_R))     _pressedKeys |= EH_K_RESTART;
 	if (WindowShouldClose())     _pressedKeys |= EH_K_QUIT;
 
+	Vector2 mdel = GetMouseDelta();
+
+	_mx = mdel.x;
+	_my = mdel.y;
+
+
 }

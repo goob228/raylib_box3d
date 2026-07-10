@@ -27,6 +27,11 @@ void Object::update(Playground* playground)
 void Object::updateMatrix()
 {
 	_transform = MatrixMultiply(MatrixMultiply(MatrixScale(_scale.x, _scale.y, _scale.z), QuaternionToMatrix(_rot)), MatrixTranslate(_pos.x, _pos.y, _pos.z));
+
+	if (_parent) {
+		_transform = MatrixMultiply(_transform, _parent->_transform);
+	}
+
 }
 
 void Object::draw(Playground* playground)
@@ -36,3 +41,9 @@ void Object::draw(Playground* playground)
 	DrawModel(playground->_models[_modelId], Vector3{0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
+
+
+void Object::setParent(Object* obj)
+{
+	_parent = obj;
+}

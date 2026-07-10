@@ -66,6 +66,9 @@ public:
 
 
 	uint16_t _keys;
+	uint16_t _pressedKeys;
+	float _mx;
+	float _my;
 
 };
 

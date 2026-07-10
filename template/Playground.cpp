@@ -118,8 +118,8 @@ int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, Ob
 												(bb.max.z - bb.min.z) * scale.z / 2.0f);
 
 		b3ShapeDef shapeDef = b3DefaultShapeDef();
-		shapeDef.density = 1.0f;
-		shapeDef.baseMaterial.friction = 0.3f;
+		shapeDef.density = 50.0f;
+		shapeDef.baseMaterial.friction = 0.5f;
 
 		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, b3Vec3{1.0f,1.0f,1.0f});
 		_bodies[_bodyCount] = bodyId;
@@ -187,8 +187,9 @@ void Playground::init(int targetFPS)
 	_worldId = b3CreateWorld(&worldDef);
 
 	
-	add_dyn_sphere();
 	_basicShader = LoadShader(0, "");
+
+
 
 
 }
@@ -197,8 +198,11 @@ void Playground::update(EventHandler* eventhandler)
 {
 
 	_keys = eventhandler->_keys;
+	_pressedKeys = eventhandler->_pressedKeys;
+	_mx = eventhandler->_mx;
+	_my = eventhandler->_my;
 
-	_camera.update();
+	_camera.update(this);
 
 	b3World_Step(_worldId, _targetDeltaTime, 2);
 
