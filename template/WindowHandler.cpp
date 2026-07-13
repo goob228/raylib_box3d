@@ -9,7 +9,6 @@
 
 void WindowHandler::init(int FPS)
 {
-	SetConfigFlags(FLAG_VSYNC_HINT);
 	InitWindow(screenWidth, screenHeight, "template");
 
 	SetTargetFPS(FPS);
@@ -21,8 +20,6 @@ void WindowHandler::startFrame()
 {
 	BeginDrawing();
 	ClearBackground(SKYBLUE);
-	Vector2 ballPosition = Vector2{ 60.0f, 60.0f };
-	DrawCircleV(ballPosition, 50, MAROON);
 }
 
 void WindowHandler::endFrame()

@@ -77,7 +77,7 @@ void Playground::add_dyn_sphere()
 
 	b3ShapeDef shapeDef = b3DefaultShapeDef();
 	shapeDef.density = 1.0f;
-	shapeDef.baseMaterial.friction = 0.3f;
+	shapeDef.baseMaterial.friction = 0.5f;
 
 	b3CreateSphereShape(bodyId, &shapeDef, &sphere);
 	_bodies[_bodyCount] = bodyId;
@@ -119,7 +119,7 @@ int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, Ob
 
 		b3ShapeDef shapeDef = b3DefaultShapeDef();
 		shapeDef.density = 50.0f;
-		shapeDef.baseMaterial.friction = 0.5f;
+		shapeDef.baseMaterial.friction = 0.0f;
 
 		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, b3Vec3{1.0f,1.0f,1.0f});
 		_bodies[_bodyCount] = bodyId;
@@ -175,8 +175,10 @@ void Playground::init(int targetFPS)
 	_targetFPS = targetFPS;
 	_targetDeltaTime = 1.0f / (float)_targetFPS;
 
-	if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
-		TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
+	#ifndef PLATFORM_WEB
+		if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
+			TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
+	#endif
 
 	_camera.init();
 

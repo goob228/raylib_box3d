@@ -6,6 +6,10 @@
 #include "Playground.h"
 #include "LuaBind.h"
 
+#ifndef SET_FPS 
+#define SET_FPS 240
+#endif
+
 
 class Game
 {
@@ -28,7 +32,7 @@ private:
 
 	bool _running = false;
 
-	int _targetFPS = 60;
+	int _targetFPS = SET_FPS;
 	float _deltaTime = 1.0f / (float)_targetFPS;
 
 

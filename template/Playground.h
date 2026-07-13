@@ -11,11 +11,13 @@
 #include "WindowHandler.h"
 #include "Camera.h"
 #include "Object.h"
+#include "Animation.h"
 
 #define MAX_BODIES 512
 #define MAX_OBJECTS 512
 #define MAX_TEXTURES 512
 #define MAX_MODELS 512
+#define MAX_SPRINGS 512
 
 #define MAX_LINES 64
 
@@ -48,6 +50,9 @@ public:
 	Object* _objects[MAX_OBJECTS] = { nullptr };
 	Texture2D _textures[MAX_TEXTURES] = { 0 };
 	Model _models[MAX_MODELS] = { 0 };
+	Spring _springs[MAX_SPRINGS] = { 0 };
+
+
 
 	b3Pos _lines[MAX_LINES];
 
@@ -55,6 +60,7 @@ public:
 	int _objCount = 1;
 	int _textureCount = 1;
 	int _modelCount = 1;
+	int _springCount = 1;
 
 	Shader _basicShader = { 0 };
 

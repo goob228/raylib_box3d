@@ -46,8 +46,10 @@ Wheel* Wheel::create(Object* object)
 void Wheel::update(Playground* playground)
 {
 	if (_car) {
-		_pos = Vector3{ _defaultPos.x, _defaultPos.y - _prevHeight, _defaultPos.z};
-		_rot = QuaternionFromEuler(0.0f, _angle, 0.0f);
+		_pos = Vector3{ _defaultPos.x, _defaultPos.y - _prevHeight + _radius, _defaultPos.z};
+		_YZangle += _speed / _radius * playground->_targetDeltaTime;
+		_YZangle = fmodf(_YZangle, 2 * PI);
+		_rot = QuaternionFromEuler(_YZangle, _angle, 0.0f);
 	}
 	updateMatrix();
 }
@@ -57,7 +59,12 @@ void vecToWheel(b3Vec3* vec, float angel)
 {
 	vec->x = vec->x * cosf(angel) - vec->z * sinf(angel);
 
-	vec->z = vec->z * cosf(angel) + vec->z * sinf(angel);
+	vec->z = vec->z * cosf(angel) + vec->x * sinf(angel);
+}
+
+float zVecFromWheel(b3Vec3* vec, float angel)
+{
+	return vec->z * cosf(angel) + vec->x * sinf(angel);
 }
 
 
@@ -74,7 +81,7 @@ Car* Car::create(Object* object, Playground* playground)
 	car->_texId = object->_texId;
 	car->_modelId = object->_modelId;
 
-	car->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 0.25f * 4.0f;
+	car->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 20.0f * 0.25f;
 
 	std::cout << "MASS: " << b3Body_GetMass(playground->_bodies[car->_physId]) << std::endl;
 
@@ -98,8 +105,10 @@ Car* Car::create(Object* object, Playground* playground)
 
 void Car::steer(float angleDeg)
 {
-	_wheels[2]->_angle = angleDeg * DEG2RAD;
-	_wheels[3]->_angle = angleDeg * DEG2RAD;
+	if (_wheelCount >= 2) {
+		_wheels[0]->_angle = angleDeg * DEG2RAD;
+		_wheels[1]->_angle = angleDeg * DEG2RAD;
+	}
 }
 
 
@@ -147,6 +156,33 @@ void Car::update(Playground* playground)
 		b3Vec3 torqueforce = b3Vec3{ 0 };
 
 
+
+		if (_accelerating) {
+
+			_wheels[i]->_speed += _torqueCurve.evaluate(_wheels[i]->_speed / _maxSpeed) * _torque * playground->_targetDeltaTime;
+
+			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
+			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
+			//torqueforce = b3Body_GetWorldVector(bid, torqueforce);
+		}
+		else {
+			float basicFriction = 10.0f * playground->_targetDeltaTime;
+			if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(basicFriction, 0.0f, _wheels[i]->_speed);
+			else _wheels[i]->_speed += Clamp(basicFriction, 0.0f, -_wheels[i]->_speed);
+		}
+		
+
+		float maxVelFric = 30.0f * playground->_targetDeltaTime;
+		
+		
+
+		if (_braking && i >= 2) {
+			_wheels[i]->_speed = 0.0f;
+			//if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(maxVelFric, 0.0f, _wheels[i]->_speed);
+			//else _wheels[i]->_speed += Clamp(maxVelFric, 0.0f, -_wheels[i]->_speed);
+		}
+
+
 		if (result.hit == false) {
 			playground->_lines[i * 2 + 0].x = rayorigin.x;
 			playground->_lines[i * 2 + 0].y = rayorigin.y;
@@ -171,17 +207,52 @@ void Car::update(Playground* playground)
 			springVel = wheelVel.y * b3Vec3_axisY;
 			springVel = b3Body_GetWorldVector(bid, springVel);
 			springforce = (result.fraction - 1.0f) * raytranslation * _springStiffness - _springDamping * springVel;
-			springforce = b3Dot(springforce, result.normal) * result.normal;
+			float scalarSpringForce = b3Dot(springforce, result.normal);
+			springforce = scalarSpringForce * result.normal;
 
 
-			frictionforce = -_tireFriction * wheelVel.x * playground->_targetFPS * b3Vec3_axisX * _wheels[i]->_weight;
-			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
+			//_wheels[i]->_speed = wheelVel.z; //zVecFromWheel(&wheelVel, _wheels[i]->_angle);
 
-			if (_accelerating) {
-				torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
-				vecToWheel(&torqueforce, -_wheels[i]->_angle);
-				torqueforce = b3Body_GetWorldVector(bid, torqueforce);
+
+			float diff = _wheels[i]->_speed - wheelVel.z;
+			/*
+			diff = Clamp(diff, -maxVelFric, maxVelFric);
+
+			_wheels[i]->_speed -= diff;
+			
+			torqueforce = diff * playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
+			vecToWheel(&torqueforce, -_wheels[i]->_angle);
+			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
+			*/
+			
+			
+			//if (!_accelerating) _wheels[i]->_speed -= diff;
+
+			float pifagor_2 = wheelVel.x * wheelVel.x + diff * diff;
+			float pifagor = sqrtf(pifagor_2);
+			if (pifagor_2 >= maxVelFric * maxVelFric) {
+				_wheels[i]->_sliding = true;
+				float factor = maxVelFric / pifagor;
+				wheelVel.x *= factor;
+				diff *= factor;
 			}
+			else {
+				_wheels[i]->_sliding = false;
+			}
+
+			//if (_accelerating);
+			_wheels[i]->_speed -= diff;
+
+			frictionforce = -wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
+			vecToWheel(&frictionforce, -_wheels[i]->_angle);
+			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
+			
+			
+
+			torqueforce = diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
+			vecToWheel(&torqueforce, -_wheels[i]->_angle);
+			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
+			
 			
 
 			force += springforce;

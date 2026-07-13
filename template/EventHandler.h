@@ -11,6 +11,7 @@
 #define EH_K_ESC     (1 << 5)
 #define EH_K_QUIT    (1 << 6)	
 #define EH_K_RESTART (1 << 7)
+#define EH_K_E (1 << 8)
 
 
 class EventHandler

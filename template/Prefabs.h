@@ -28,8 +28,15 @@ public:
 	float _springLen = 0.0f;
 	float _prevHeight = 0.0f;
 	float _angle = 0.0f;
-
 	float _weight = 60.0f;
+
+	float _speed = 0.0f;
+	float _radius = 0.45f;
+	float _YZangle = 0.0f;
+
+	bool _sliding = false;
+	bool _steering = false;
+
 };
 
 
@@ -45,7 +52,7 @@ public:
 	
 
 
-	float _springLen = 1.0f;
+	float _springLen = 1.1f;
 
 	float _springStiffness = 800.0f;
 
@@ -58,8 +65,8 @@ public:
 	bool _accelerating = false;
 	bool _braking = false;
 	LookUpCurve _torqueCurve = { 0 };
-	float _torque = 3000.0f;
-	float _maxSpeed = 300.0f;
+	float _torque = 40.0f;
+	float _maxSpeed = 70.0f;
 
 	Wheel* _wheels[CAR_WHEEL_COUNT] = { 0 };
 

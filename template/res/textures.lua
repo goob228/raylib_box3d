@@ -46,7 +46,7 @@ model_paths = {
     box_large = "res/box_large.obj",
     car3 = "res/car3.obj",
     fn_fal = "res/FN_FAL.obj",
-    wheel = "res/Wheel_ground.obj",
+    wheel = "res/Wheel.obj",
     car1 = "res/Car.obj",
     car2 = "res/Car2.obj",
     car3 = "res/Car3.obj",
@@ -97,7 +97,7 @@ child = addObject(textures["car4_orange"], models.car4, types.EMPTY, -20.0, 30.0
 addObject(textures["car1_blue"], models.car1, types.PROP, -15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car2_blue"], models.car2, types.PROP, -10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car3_red"], models.car3, types.PROP, -5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
-car = addObject(textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 20.0, 1.0, 1.0, 1.0);
+car = addObject(textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 100.0, 1.0, 1.0, 1.0);
 addObject(textures["car7_green"], models.car7, types.PROP, 5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car8_mail"], models.car8, types.PROP, 10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car8_purple"], models.car8, types.PROP, 15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
@@ -105,17 +105,17 @@ addObject(textures["car6_mud"], models.car6, types.PROP, 20.0, 10.0, 10.0, 1.0, 
 
 --- -1.8
 
-wx = 1.1
+wx = 1.0
 
-wy = 0.6
+wy = 1.0
 
-wheel1 = addObject(textures["wheel"], models.wheel, types.EMPTY, -wx, wy, -1.8, 1.0, 1.0, 1.0);
+wheel1 = addObject(textures["wheel"], models.wheel, types.EMPTY, -wx, wy, 2.2, 1.0, 1.0, 1.0);
 
-wheel2 = addObject(textures["wheel"], models.wheel, types.EMPTY, wx, wy, -1.8, 1.0, 1.0, 1.0);
+wheel2 = addObject(textures["wheel"], models.wheel, types.EMPTY, wx, wy, 2.2, 1.0, 1.0, 1.0);
 
-wheel3 = addObject(textures["wheel"], models.wheel, types.EMPTY, -wx, wy, 2.2, 1.0, 1.0, 1.0);
+wheel3 = addObject(textures["wheel"], models.wheel, types.EMPTY, -wx, wy, -1.8, 1.0, 1.0, 1.0);
 
-wheel4 = addObject(textures["wheel"], models.wheel, types.EMPTY, wx, wy, 2.2, 1.0, 1.0, 1.0);
+wheel4 = addObject(textures["wheel"], models.wheel, types.EMPTY, wx, wy, -1.8, 1.0, 1.0, 1.0);
 
 
 convertToWheel(wheel1)
@@ -131,9 +131,9 @@ rotateObject(rotatedGround, 0.0, 0.0, 20.0)
 
 --childptr = getObjectPointer(pg, child)
 
-setDamping(car, 1400)
+setDamping(car, 10000)
 
-setMassCenter(car, 0.0, 0.2, 0.0)
+setMassCenter(car, 0.0, 0.3, 0.2)
 
 --setParent(childptr, carptr)
 
@@ -148,26 +148,42 @@ setCarToWheel(wheel3, car)
 setCarToWheel(wheel4, car)
 
 
+steer_spring = createSpring()
+
+
+setSpringTargetPos(steer_spring, 0.0)
+setSpringValues(steer_spring, 4.0, 1.0)
+
 
 function update()
 
-    carSteer(car, 0.0)
 
-    if isKeyPressed(K_SPACE) then
-        addForceToObj(car, 2000.0, 0.0, 1000.0)
+    
+    setSpringTargetPos(steer_spring, 0.0)
+
+    if isKeyPressed(K_E) then
+        addForceToObj(car, 0.0, 1000000.0, 0.0)
     end
 
+
     if isKeyDown(K_D) then
-        carSteer(car, -30.0)
+        setSpringTargetPos(steer_spring, -30.0)
     end
 
     if isKeyDown(K_A) then
-        carSteer(car, 30.0)
+        setSpringTargetPos(steer_spring, 30.0)
     end
 
     if isKeyDown(K_W) then
         carAccelerate(car)
     end
+
+    if isKeyDown(K_SPACE) then
+        carBrake(car)
+    end
+
+    updateSpring(steer_spring)
+    carSteer(car, getSpringPos(steer_spring))
     
     
     return

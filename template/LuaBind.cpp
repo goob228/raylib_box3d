@@ -148,6 +148,19 @@ int lua_carAccelerate(lua_State* L)
 	return 1;
 }
 
+int lua_carBrake(lua_State* L)
+{
+
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	Car* car = (Car*)pg->_objects[(int)lua_tonumber(L, 1)];
+
+	car->_braking = true;
+
+	return 1;
+}
+
 int lua_addForceToObj(lua_State* L)
 {
 	lua_getglobal(L, "PLAYGROUND");
@@ -308,6 +321,124 @@ int lua_rotateObject(lua_State* L)
 	return 1;
 }
 
+int lua_objectSetPos(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	Object* obj = (Object*)pg->_objects[(int)lua_tonumber(L, 1)];
+
+	float x = (float)lua_tonumber(L, 2);
+	float y = (float)lua_tonumber(L, 3);
+	float z = (float)lua_tonumber(L, 4);
+
+	obj->_pos = Vector3{x, y, z};
+	if (obj->_physId != 0) {
+		b3Quat rot = b3Body_GetRotation(pg->_bodies[obj->_physId]);
+		b3Body_SetTransform(pg->_bodies[obj->_physId], b3Vec3{x,y,z}, rot);
+	}
+
+	obj->updateMatrix();
+
+
+	return 1;
+}
+
+int lua_createSpring(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	for (int i = 1; i < pg->_springCount; i++) {
+		if (pg->_springs[i].used == false) {
+			pg->_springs[i].used == true;
+			lua_pushinteger(L, i);
+			return 1;
+		}
+	}
+
+	pg->_springs[pg->_springCount].used == true;
+	pg->_springs[pg->_springCount].startPosition = 0.0f;
+	pg->_springs[pg->_springCount].startVelocity = 0.0f;
+	pg->_springs[pg->_springCount].elapsedTime = 0.0f;
+
+	lua_pushinteger(L, pg->_springCount);
+	pg->_springCount++;
+
+	return 1;
+}
+
+int lua_setSpringPos(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	int id = (int)lua_tointeger(L, 1);
+	float pos = (float)lua_tonumber(L, 2);
+
+	pg->_springs[id].setPos(pos);
+
+
+	return 1;
+}
+
+int lua_setSpringTargetPos(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	int id = (int)lua_tointeger(L, 1);
+	float pos = (float)lua_tonumber(L, 2);
+
+	pg->_springs[id].setTargetPos(pos);
+
+	return 1;
+}
+
+int lua_setSpringValues(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	int id = (int)lua_tointeger(L, 1);
+	float hertz = (float)lua_tonumber(L, 2);
+	float damp = (float)lua_tonumber(L, 3);
+
+	pg->_springs[id].setHertz(hertz);
+	pg->_springs[id].setDamping(damp);
+
+	return 1;
+}
+
+
+int lua_updateSpring(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	int id = (int)lua_tointeger(L, 1);
+
+	pg->_springs[id].update(pg->_targetDeltaTime);
+
+	return 1;
+}
+
+
+int lua_getSpringPos(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	int id = (int)lua_tointeger(L, 1);
+
+	lua_pushnumber(L, pg->_springs[id].getPos());
+
+
+	return 1;
+}
+
+
+
 void Lua::init(lua_State* L, Playground* pg, EventHandler* eh)
 {
 	luaL_openlibs(L);
@@ -331,6 +462,9 @@ void Lua::init(lua_State* L, Playground* pg, EventHandler* eh)
 	lua_pushinteger(L, EH_K_A);
 	lua_setglobal(L, "K_A");
 
+	lua_pushinteger(L, EH_K_E);
+	lua_setglobal(L, "K_E");
+
 	lua_pushinteger(L, EH_K_SPACE);
 	lua_setglobal(L, "K_SPACE");
 
@@ -348,14 +482,23 @@ void Lua::init(lua_State* L, Playground* pg, EventHandler* eh)
 	lua_register(L, "setIdToWheel", lua_setIdToWheel);
 	lua_register(L, "carSteer", lua_carSteer);
 	lua_register(L, "carAccelerate", lua_carAccelerate);
+	lua_register(L, "carBrake", lua_carBrake);
 	lua_register(L, "addForceToObj", lua_addForceToObj);
 	lua_register(L, "rotateObject", lua_rotateObject);
 	lua_register(L, "isKeyPressed", lua_isKeyPressed);
 	lua_register(L, "isKeyDown", lua_isKeyDown);
 	lua_register(L, "setCameraParent", lua_setCameraParent);
+	lua_register(L, "createSpring", lua_createSpring);
+	lua_register(L, "updateSpring", lua_updateSpring);
+	lua_register(L, "setSpringPos", lua_setSpringPos);
+	lua_register(L, "setSpringTargetPos", lua_setSpringTargetPos);
+	lua_register(L, "setSpringValues", lua_setSpringValues);
+	lua_register(L, "getSpringPos", lua_getSpringPos);
+	lua_register(L, "objectSetPos", lua_objectSetPos);
+	
 
 
-	int r = luaL_dofile(L, "D:/Github/raylib_box3d/template/res/textures.lua");
+	int r = luaL_dofile(L, "res/textures.lua");
 
 	if (r != LUA_OK) {
 		TraceLog(LOG_ERROR, "Lua failed: %s", lua_tostring(L, -1));
