@@ -7,7 +7,7 @@
 #include "LuaBind.h"
 
 #ifndef SET_FPS 
-#define SET_FPS 240
+#define SET_FPS 60
 #endif
 
 
@@ -29,6 +29,7 @@ private:
 	EventHandler* _eventhandler;
 	Playground* _playground;
 	lua_State* L;
+	sol::state lua;
 
 	bool _running = false;
 

@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include <box3d/box3d.h>
-#include <lua/lua.hpp>
 
 
 #include "EventHandler.h"

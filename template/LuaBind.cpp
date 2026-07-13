@@ -1,6 +1,5 @@
 #include "LuaBind.h"
 
-#include <lua/lua.hpp>
 #include <raylib.h>
 
 #include "Playground.h"
@@ -11,6 +10,361 @@
 lua_getglobal(L, "pg");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 */
+
+
+void SolLua::init(sol::state& lua, Playground* pg, EventHandler* eh)
+{
+	lua.open_libraries(sol::lib::base, sol::lib::io, sol::lib::math, sol::lib::table);
+
+	lua["PLAYGROUND"] = pg;
+	lua["EVENTHANDLER"] = eh;
+
+	lua["K_W"] = (int)EH_K_W;
+	lua["K_D"] = (int)EH_K_D;
+	lua["K_A"] = (int)EH_K_A;
+	lua["K_SPACE"] = (int)EH_K_SPACE;
+	lua["K_E"] = (int)EH_K_E;
+
+	lua["addTexture"] = [](sol::this_state ts, std::string path)
+		{
+		sol::state_view lua(ts);
+		Playground* pg = lua["PLAYGROUND"];
+		pg->addTexture(path.c_str());
+		int idx = pg->_textureCount - 1;
+		return idx;
+		};
+
+	lua["addModel"] = [](sol::this_state ts, std::string path)
+		{
+		
+		sol::state_view lua(ts);
+		Playground* pg = lua["PLAYGROUND"];
+
+		pg->addModel(path.c_str());
+
+		int idx = pg->_modelCount - 1;
+
+		return idx;
+		};
+
+	lua["addObject"] = [](sol::this_state ts, int texId, int modelId, ObjectType type, 
+		float px, float py, float pz, float sx, float sy, float sz)
+		{
+
+		sol::state_view lua(ts);
+		Playground* pg = lua["PLAYGROUND"];
+
+		int idx = pg->addObject(Vector3{ px, py, pz }, Vector3{ sx, sy, sz }, texId, modelId, type);		
+
+		return idx;
+		};
+
+	lua["convertToCar"] = [](sol::this_state ts, int objid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			pg->_objects[objid] = Car::create(pg->_objects[objid], pg);
+
+			return;
+		};
+
+	lua["convertToWheel"] = [](sol::this_state ts, int objid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			pg->_objects[objid] = Wheel::create(pg->_objects[objid]);
+
+			return;
+		};
+
+	lua["setDamping"] = [](sol::this_state ts, int objid, float damping)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Car* car = (Car*)pg->_objects[objid];
+			car->_springDamping = damping;
+
+			return;
+		};
+
+	lua["carSteer"] = [](sol::this_state ts, int objid, float angle)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Car* car = (Car*)pg->_objects[objid];
+
+			car->steer(angle);
+
+			return;
+		};
+
+	lua["carAccelerate"] = [](sol::this_state ts, int objid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Car* car = (Car*)pg->_objects[objid];
+
+			car->_accelerating = true;
+
+			return;
+		};
+
+	lua["carBrake"] = [](sol::this_state ts, int objid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Car* car = (Car*)pg->_objects[objid];
+
+			car->_braking = true;
+
+			return;
+		};
+
+
+	lua["addForceToObj"] = [](sol::this_state ts, int objid, float fx, float fy, float fz)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Object* obj = pg->_objects[objid];
+
+			b3Body_ApplyForceToCenter(pg->_bodies[obj->_physId], b3Vec3{ fx,fy,fz }, true);
+
+			return;
+		};
+
+	lua["isKeyPressed"] = [](sol::this_state ts, int key)
+		{
+
+			sol::state_view lua(ts);
+			Playground* eh = lua["EVENTHANDLER"];
+
+			if (eh->_pressedKeys & key) {
+				return true;
+			}
+
+			return false;
+		};
+
+	lua["isKeyDown"] = [](sol::this_state ts, int key)
+		{
+
+			sol::state_view lua(ts);
+			Playground* eh = lua["EVENTHANDLER"];
+
+			if (eh->_keys & key) {
+				return 1;
+			}
+
+			return 0;
+		};
+
+	lua["setParent"] = [](sol::this_state ts, int objid, int parid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Object* obj = pg->_objects[objid];
+
+			Object* par = pg->_objects[parid];
+
+			obj->setParent(par);
+
+			return;
+		};
+
+	lua["setCameraParent"] = [](sol::this_state ts, int parid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+
+			Object* par = pg->_objects[parid];
+
+			pg->_camera.setParent(par);
+
+			return;
+		};
+
+
+	lua["setCarToWheel"] = [](sol::this_state ts, int wheelid, int carid)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Wheel* wheel = (Wheel*)pg->_objects[wheelid];
+
+			Car* car = (Car*)pg->_objects[carid];
+
+			wheel->_car = car;
+			wheel->_parent = (Object*)car;
+			wheel->_springLen = car->_springLen;
+
+			car->_wheels[car->_wheelCount] = wheel;
+			car->_wheelCount++;
+
+			return;
+		};
+
+	lua["rotateObject"] = [](sol::this_state ts, int objid, float rx, float ry, float rz)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Object* obj = pg->_objects[objid];
+
+			b3Vec3 pos = b3Body_GetPosition(pg->_bodies[obj->_physId]);
+			Quaternion r = QuaternionFromEuler(rx * DEG2RAD, ry * DEG2RAD, rz * DEG2RAD);
+			b3Quat rot = { {r.x, r.y, r.z},r.w };
+
+
+			b3Body_SetTransform(pg->_bodies[obj->_physId], pos, rot);
+			obj->_rot = r;
+			obj->updateMatrix();
+
+			return;
+		};
+
+	lua["setMassCenter"] = [](sol::this_state ts, int objid, float mx, float my, float mz)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Object* obj = pg->_objects[objid];
+
+			b3BodyId bid = pg->_bodies[obj->_physId];
+
+			b3Matrix3 in = b3Body_GetLocalRotationalInertia(bid);
+
+			float mass = b3Body_GetMass(bid);
+
+			b3MassData pidor = { mass, b3Vec3{mx,my,mz}, in };
+
+			b3Body_SetMassData(bid, pidor);
+
+			return;
+		};
+
+
+	lua["setObjectPos"] = [](sol::this_state ts, int objid, float x, float y, float z)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			Object* obj = (Object*)pg->_objects[objid];
+
+
+			obj->_pos = Vector3{ x, y, z };
+			if (obj->_physId != 0) {
+				b3Quat rot = b3Body_GetRotation(pg->_bodies[obj->_physId]);
+				b3Body_SetTransform(pg->_bodies[obj->_physId], b3Vec3{ x,y,z }, rot);
+			}
+
+			obj->updateMatrix();
+
+			return;
+		};
+
+	lua["createSpring"] = [](sol::this_state ts)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			for (int i = 1; i < pg->_springCount; i++) {
+				if (pg->_springs[i].used == false) {
+					pg->_springs[i].used == true;
+					return i;
+				}
+			}
+
+			pg->_springs[pg->_springCount].used == true;
+			pg->_springs[pg->_springCount].startPosition = 0.0f;
+			pg->_springs[pg->_springCount].startVelocity = 0.0f;
+			pg->_springs[pg->_springCount].elapsedTime = 0.0f;
+
+			pg->_springCount++;
+
+			return pg->_springCount-1;
+		};
+
+	lua["setSpringValues"] = [](sol::this_state ts, int id, float hertz, float damp)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			pg->_springs[id].setHertz(hertz);
+			pg->_springs[id].setDamping(damp);
+
+			return;
+		};
+
+	lua["setSpringTargetPos"] = [](sol::this_state ts, int id, float pos)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+
+			pg->_springs[id].setTargetPos(pos);
+
+			return;
+		};
+	
+	lua["updateSpring"] = [](sol::this_state ts, int id)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+
+			pg->_springs[id].update(pg->_targetDeltaTime);
+
+			return;
+		};
+
+	lua["getSpringPos"] = [](sol::this_state ts, int id)
+		{
+
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+
+			return pg->_springs[id].getPos();
+		};
+	
+
+	try
+	{
+		lua.safe_script_file("res/textures.lua");
+	}
+	catch (const sol::error& e)
+	{
+		TraceLog(LOG_ERROR, (char*)(e.what()));
+		return;
+	}
+
+}
 
 
 int lua_addTexture(lua_State* L)
@@ -410,7 +764,6 @@ int lua_setSpringValues(lua_State* L)
 	return 1;
 }
 
-
 int lua_updateSpring(lua_State* L)
 {
 	lua_getglobal(L, "PLAYGROUND");
@@ -422,7 +775,6 @@ int lua_updateSpring(lua_State* L)
 
 	return 1;
 }
-
 
 int lua_getSpringPos(lua_State* L)
 {

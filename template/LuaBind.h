@@ -1,7 +1,8 @@
 #ifndef LUABIND_H
 #define LUABIND_H
 
-#include <lua/lua.hpp>
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
 
 #include "Playground.h"
 #include "EventHandler.h"
@@ -17,6 +18,13 @@ int lua_carSteer(lua_State* L);
 int lua_addForceToObj(lua_State* L);
 int lua_isKeyPressed(lua_State* L);
 */
+
+namespace SolLua
+{
+
+	void init(sol::state& lua, Playground* pg, EventHandler* eh);
+
+}
 
 namespace Lua
 {

@@ -6,7 +6,6 @@
 #include "Object.h"
 
 #include <box3d/box3d.h>
-#include <lua/lua.hpp>
 
 #include "Playground.h"
 #include "Animation.h"

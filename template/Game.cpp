@@ -23,7 +23,7 @@ void Game::quit()
 	_playground->cleanUp();
 	_windowhandler->close();
 
-	lua_close(L);
+	//lua_close(L);
 
 
 	_running = false;
@@ -53,9 +53,11 @@ int Game::init()
 	_windowhandler->init(_targetFPS);
 	_playground->init(_targetFPS);
 
-	L = luaL_newstate();
+	//L = luaL_newstate();
 
-	Lua::init(L, _playground, _eventhandler);
+	//Lua::init(L, _playground, _eventhandler);
+
+	SolLua::init(lua, _playground, _eventhandler);
 
 	return 0;
 
@@ -85,8 +87,10 @@ void Game::startLoop()
 			continue;
 		}
 
-		lua_getglobal(L, "update");
-		lua_pcall(L, 0, 0, 0);
+		//lua_getglobal(L, "update");
+		//lua_pcall(L, 0, 0, 0);
+
+		lua["update"](1);
 
 		_playground->update(_eventhandler);
 		

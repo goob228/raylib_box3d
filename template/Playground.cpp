@@ -3,7 +3,6 @@
 #include <box3d/box3d.h>
 #include <raylib.h>
 #include <rlgl.h>
-#include <lua/lua.hpp>
 
 
 #include "WindowHandler.h"
@@ -234,12 +233,6 @@ void Playground::render(WindowHandler* windowhandler)
 	}
 	*/
 
-	{
-		b3Vec3 position = b3Body_GetPosition(_bodies[1]);
-		b3Quat rotation = b3Body_GetRotation(_bodies[1]);
-
-		windowhandler->drawSphere(position.x, position.y, position.z, 0.5f);
-	}
 
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {

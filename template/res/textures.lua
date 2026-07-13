@@ -155,7 +155,7 @@ setSpringTargetPos(steer_spring, 0.0)
 setSpringValues(steer_spring, 4.0, 1.0)
 
 
-function update()
+function update(bidaras)
 
 
     
@@ -174,7 +174,7 @@ function update()
         setSpringTargetPos(steer_spring, 30.0)
     end
 
-    if isKeyDown(K_W) then
+    if isKeyDown(1) == 1 then
         carAccelerate(car)
     end
 
@@ -185,8 +185,9 @@ function update()
     updateSpring(steer_spring)
     carSteer(car, getSpringPos(steer_spring))
     
+    print("pidor")
     
-    return
+    return;
 end
 
 
