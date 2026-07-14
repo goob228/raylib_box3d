@@ -131,7 +131,11 @@ rotateObject(rotatedGround, 0.0, 0.0, 20.0)
 
 --childptr = getObjectPointer(pg, child)
 
-setDamping(car, 10000)
+carptr = getCarPtr(car)
+
+carptr._springDamping = 10000
+
+--setDamping(car, 10000)
 
 setMassCenter(car, 0.0, 0.3, 0.2)
 
@@ -155,11 +159,18 @@ setSpringTargetPos(steer_spring, 0.0)
 setSpringValues(steer_spring, 4.0, 1.0)
 
 
-function update(bidaras)
+sol_spring = Spring.new();
+
+sol_spring:setTargetPos(0.0)
+sol_spring.hertz = 4.0
+sol_spring.damping = 1.0
 
 
+
+function update()
     
     setSpringTargetPos(steer_spring, 0.0)
+    sol_spring:setTargetPos(0.0)
 
     if isKeyPressed(K_E) then
         addForceToObj(car, 0.0, 1000000.0, 0.0)
@@ -168,13 +179,15 @@ function update(bidaras)
 
     if isKeyDown(K_D) then
         setSpringTargetPos(steer_spring, -30.0)
+        sol_spring:setTargetPos(-30.0)
     end
 
     if isKeyDown(K_A) then
         setSpringTargetPos(steer_spring, 30.0)
+        sol_spring:setTargetPos(30.0)
     end
 
-    if isKeyDown(1) == 1 then
+    if isKeyDown(K_W) then
         carAccelerate(car)
     end
 
@@ -183,11 +196,11 @@ function update(bidaras)
     end
 
     updateSpring(steer_spring)
-    carSteer(car, getSpringPos(steer_spring))
+    sol_spring:update(0.016)
+    carSteer(car, sol_spring:getPos())
     
+
     print("pidor")
-    
-    return;
 end
 
 

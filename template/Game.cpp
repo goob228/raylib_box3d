@@ -24,8 +24,8 @@ void Game::quit()
 	_windowhandler->close();
 
 	//lua_close(L);
-
-
+	//lua.stack_clear();
+	lua_close(lua.lua_state());
 	_running = false;
 	delete _eventhandler;
 	delete _windowhandler;
@@ -90,7 +90,8 @@ void Game::startLoop()
 		//lua_getglobal(L, "update");
 		//lua_pcall(L, 0, 0, 0);
 
-		lua["update"](1);
+			
+		lua["update"]();
 
 		_playground->update(_eventhandler);
 		

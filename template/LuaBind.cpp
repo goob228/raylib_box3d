@@ -25,6 +25,37 @@ void SolLua::init(sol::state& lua, Playground* pg, EventHandler* eh)
 	lua["K_SPACE"] = (int)EH_K_SPACE;
 	lua["K_E"] = (int)EH_K_E;
 
+	lua.new_usertype<Spring>("Spring",
+		sol::constructors<Spring()>(),
+
+		"setTargetPos", &Spring::setTargetPos,
+		"getPos", &Spring::getPos,
+		"update", &Spring::update,
+
+
+		"hertz", &Spring::hertz, 
+		"damping",  &Spring::damping		
+	);
+
+	lua.new_usertype<Car>("Car",
+		sol::constructors<Car()>(),
+
+		"print_name", &Car::update,
+
+		"_springDamping", &Car::_springDamping
+	);
+
+
+
+	lua["getCarPtr"] = [](sol::this_state ts, int objid)
+		{
+			sol::state_view lua(ts);
+			Playground* pg = lua["PLAYGROUND"];
+
+			return std::ref(*((Car*)pg->_objects[objid]));
+
+		};
+
 	lua["addTexture"] = [](sol::this_state ts, std::string path)
 		{
 		sol::state_view lua(ts);
@@ -150,7 +181,7 @@ void SolLua::init(sol::state& lua, Playground* pg, EventHandler* eh)
 		{
 
 			sol::state_view lua(ts);
-			Playground* eh = lua["EVENTHANDLER"];
+			EventHandler* eh = lua["EVENTHANDLER"];
 
 			if (eh->_pressedKeys & key) {
 				return true;
@@ -163,13 +194,13 @@ void SolLua::init(sol::state& lua, Playground* pg, EventHandler* eh)
 		{
 
 			sol::state_view lua(ts);
-			Playground* eh = lua["EVENTHANDLER"];
+			EventHandler* eh = lua["EVENTHANDLER"];
 
 			if (eh->_keys & key) {
-				return 1;
+				return true;
 			}
 
-			return 0;
+			return false;
 		};
 
 	lua["setParent"] = [](sol::this_state ts, int objid, int parid)
