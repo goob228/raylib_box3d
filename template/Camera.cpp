@@ -11,9 +11,9 @@ Vector3 GameCamera::rotatedPos(Vector3 pos)
 {
 	float dist = 6.0f;
 	Vector3 offset = {
-		dist * cosf(_pitch) * sinf(_yaw),
-		dist * sinf(_pitch),
-		dist * cosf(_pitch) * cosf(_yaw)
+		dist * cosf(_pitch + PI) * sinf(_yaw),
+		dist * sinf(_pitch + PI),
+		dist * cosf(_pitch + PI) * cosf(_yaw)
 	};
 
 	Vector3 outp = pos;
@@ -47,13 +47,16 @@ void GameCamera::update(Playground* playground)
 	
 	if (_camMode == CAMERA_CUSTOM) {
 		_yaw -= playground->_mx * _sensitivity;
-		_pitch += playground->_my * _sensitivity;
+		_pitch -= playground->_my * _sensitivity;
 		_pitch = Clamp(_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
 		if (_parent) {
 			_cam.position = rotatedPos(_pos);
 			_cam.target = Vector3Transform(_target, _parent->_transform);
-			//_cam.up = Vector3Transform(_up, _parent->_transform);
-			_cam.up = _up;
+			Vector3 right = Vector3CrossProduct(_cam.target - _cam.position, Vector3{ 0.0f,-1.0f, 0.0f });
+			Vector3 newup = Vector3CrossProduct(_cam.target - _cam.position, right);
+			newup = Vector3Normalize(newup);
+			_cam.up = newup;
+			//_cam.up = _up;
 		}
 		else {
 			_cam.position = rotatedPos(_pos);
@@ -61,6 +64,9 @@ void GameCamera::update(Playground* playground)
 			_cam.up = _up;
 		}
 	}
+
+	
+
 
 
 	UpdateCamera(&_cam, _camMode);

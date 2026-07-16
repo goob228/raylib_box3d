@@ -1,7 +1,12 @@
 #ifndef EVENTHANDLER_H
 #define EVENTHANDLER_H
 
-#include <cstdint>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
 
 #define EH_K_W       (1 << 0)
 #define EH_K_S       (1 << 1)
@@ -14,17 +19,23 @@
 #define EH_K_E (1 << 8)
 
 
-class EventHandler
-{
-public:
 
-	void processInput();
 
-	uint16_t _keys = 0;
-	uint16_t _pressedKeys = 0;
-	float _mx = 0.0f;;
-	float _my = 0.0f;
-};
 
+typedef struct EventHandler {
+	uint16_t _keys;
+	uint16_t _pressedKeys;
+	float _mx;
+	float _my;
+	void (*processInput)(EventHandler* self);
+} EventHandler;
+
+
+
+void eh_processInput(EventHandler* self);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

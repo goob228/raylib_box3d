@@ -6,7 +6,7 @@
 #include "Object.h"
 
 #include <box3d/box3d.h>
-#include <lua/lua.hpp>
+#include <rlgl.h>
 
 #include "Playground.h"
 #include "Animation.h"
@@ -293,3 +293,37 @@ void Car::update(Playground* playground)
 	_accelerating = false;
 	_braking = false;
 }
+
+
+
+
+void Particle::update(Playground* playground)
+{
+	if (_onRemove) return;
+
+	_timeSeconds += playground->_targetDeltaTime;
+
+	_pos += _linVel* playground->_targetDeltaTime;
+	_scale += _scaleVel * playground->_targetDeltaTime;
+	_alpha += _alphaVel * playground->_targetDeltaTime;
+
+	if (_timeSeconds > _lifeTimeSeconds) _onRemove = true;
+}
+
+void Particle::draw(Playground* playground)
+{
+	if (_onRemove) return;
+
+	rlDisableDepthMask();
+	BeginBlendMode(BLEND_ADDITIVE);
+	
+
+	DrawBillboardPro(playground->_camera._cam, playground->_textures[_texId],
+		Rectangle{0.0f, 0.0f, (float)playground->_textures[_texId].width, (float)playground->_textures[_texId].height},
+		_pos, playground->_camera._cam.up,
+		Vector2{ _scale.x, _scale.z }, Vector2{ _scale.x*0.5f, _scale.z*0.5f }, _anVel* _timeSeconds, Color{255, 255, 255, (unsigned char)b3ClampInt((int)_alpha, 0, 255)});
+	EndBlendMode();
+	rlEnableDepthMask();
+}
+
+

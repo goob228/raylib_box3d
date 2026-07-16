@@ -5,8 +5,7 @@
 
 
 
-
-
+/*
 void WindowHandler::init(int FPS)
 {
 	InitWindow(screenWidth, screenHeight, "template");
@@ -32,15 +31,32 @@ void WindowHandler::close()
 {
 	CloseWindow();
 }
+*/
 
-void WindowHandler::drawBox(float x, float y, float z, float scl)
+void wh_init(WindowHandler* self, int FPS)
 {
-	Vector3 pos = Vector3{ x, y, z };
-	DrawCube(pos, scl, scl, scl, RED);
+	InitWindow(self->screenWidth, self->screenHeight, "template");
+
+	SetTargetFPS(FPS);
+
+	DisableCursor();
 }
 
-void WindowHandler::drawSphere(float x, float y, float z, float r)
+void wh_startFrame(WindowHandler* self)
 {
-	Vector3 pos = Vector3{ x, y, z };
-	DrawSphere(pos, r, BLUE);
+	BeginDrawing();
+	ClearBackground(SKYBLUE);
 }
+
+void wh_endFrame(WindowHandler* self)
+{
+	DrawFPS(1, 1);
+	EndDrawing();
+}
+
+void wh_close(WindowHandler* self)
+{
+	CloseWindow();
+}
+
+

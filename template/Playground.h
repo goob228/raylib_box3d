@@ -32,6 +32,8 @@ public:
 	void add_dyn_box2();
 	void add_dyn_sphere();
 
+	int addObject(Object* object);
+
 	int addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
 	void delete_object();
 
@@ -75,6 +77,8 @@ public:
 	uint16_t _pressedKeys;
 	float _mx;
 	float _my;
+
+	float _elapsed = 0.0f;
 
 };
 

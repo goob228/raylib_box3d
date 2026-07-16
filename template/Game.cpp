@@ -21,7 +21,7 @@ void Game::quit()
 {
 
 	_playground->cleanUp();
-	_windowhandler->close();
+	_windowhandler->close(_windowhandler);
 
 	lua_close(L);
 
@@ -35,14 +35,17 @@ void Game::quit()
 int Game::init()
 {
 
-	_eventhandler = new EventHandler();
-
+	_eventhandler = new EventHandler{ 0 };
 	if (!_eventhandler) return 1;
+	_eventhandler->processInput = (&eh_processInput);
 
-
-	_windowhandler = new WindowHandler();
+	_windowhandler = new WindowHandler;
 
 	if (!_windowhandler) return 1;
+	_windowhandler->init = (&wh_init);
+	_windowhandler->startFrame = (&wh_startFrame);
+	_windowhandler->endFrame = (&wh_endFrame);
+	_windowhandler->close = (&wh_close);
 
 	_playground = new Playground();
 
@@ -50,7 +53,7 @@ int Game::init()
 
 	_running = true;
 
-	_windowhandler->init(_targetFPS);
+	_windowhandler->init(_windowhandler, _targetFPS);
 	_playground->init(_targetFPS);
 
 	L = luaL_newstate();
@@ -73,7 +76,7 @@ void Game::startLoop()
 
 	while (_running) {
 
-		_eventhandler->processInput();
+		_eventhandler->processInput(_eventhandler);
 
 		if (_eventhandler->_keys & EH_K_QUIT) {
 			_running = false;
@@ -90,9 +93,9 @@ void Game::startLoop()
 
 		_playground->update(_eventhandler);
 		
-		_windowhandler->startFrame();
+		_windowhandler->startFrame(_windowhandler);
 		_playground->render(_windowhandler);
-		_windowhandler->endFrame();
+		_windowhandler->endFrame(_windowhandler);
 
 	}
 

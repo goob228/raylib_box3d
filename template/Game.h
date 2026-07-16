@@ -7,7 +7,7 @@
 #include "LuaBind.h"
 
 #ifndef SET_FPS 
-#define SET_FPS 240
+#define SET_FPS 60
 #endif
 
 

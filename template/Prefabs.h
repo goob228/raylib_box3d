@@ -4,7 +4,6 @@
 #include "Object.h"
 
 #include <box3d/box3d.h>
-#include <lua/lua.hpp>
 
 #include "Animation.h"
 
@@ -74,6 +73,26 @@ public:
 
 };
 
+
+class Particle : public Object
+{
+
+public:
+
+	void update(Playground* playground) override;
+
+	void draw(Playground* playground) override;
+
+	Vector3 _linVel = Vector3Zeros;
+	Vector3 _scaleVel = Vector3Zeros;
+	float _anVel = 0.0f;
+	float _timeSeconds = 0.0f;
+	float _lifeTimeSeconds = 0.0f;
+	float _alpha = 255.0f;
+	float _alphaVel = 0.0f;
+
+
+};
 
 
 

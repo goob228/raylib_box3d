@@ -84,6 +84,20 @@ void Playground::add_dyn_sphere()
 	_bodyCount++;
 }
 
+int Playground::addObject(Object* object)
+{
+	for (int i = 1; i < _objCount; i++) {
+		if (_objects[i] == nullptr) {
+			_objects[i] = object;
+			return i;
+		}
+	}
+	_objects[_objCount] = object;
+	_objCount += 1;
+
+	return _objCount - 1;
+}
+
 int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
 {
 	_objects[_objCount] = new Object();
@@ -133,6 +147,7 @@ int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, Ob
 	
 }
 
+
 void Playground::delete_object()
 {
 	int i = _objCount-1;
@@ -169,16 +184,18 @@ int Playground::addModel(char const* fileName)
 	return 0;
 }
 
+
+
 void Playground::init(int targetFPS)
 {
 
 	_targetFPS = targetFPS;
 	_targetDeltaTime = 1.0f / (float)_targetFPS;
 
-	#ifndef PLATFORM_WEB
-		if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
-			TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
-	#endif
+#ifndef PLATFORM_WEB
+	if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
+		TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
+#endif
 
 	_camera.init();
 
@@ -188,8 +205,9 @@ void Playground::init(int targetFPS)
 
 	_worldId = b3CreateWorld(&worldDef);
 
-	
+
 	_basicShader = LoadShader(0, "");
+
 
 
 
@@ -208,10 +226,16 @@ void Playground::update(EventHandler* eventhandler)
 
 	b3World_Step(_worldId, _targetDeltaTime, 2);
 
+	
+
 
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {
 			_objects[i]->update(this);
+			if (_objects[i]->_onRemove) {
+				delete _objects[i];
+				_objects[i] = nullptr;
+			}
 		}
 	}
 }
@@ -234,12 +258,6 @@ void Playground::render(WindowHandler* windowhandler)
 	}
 	*/
 
-	{
-		b3Vec3 position = b3Body_GetPosition(_bodies[1]);
-		b3Quat rotation = b3Body_GetRotation(_bodies[1]);
-
-		windowhandler->drawSphere(position.x, position.y, position.z, 0.5f);
-	}
 
 	for (int i = 1; i <= _objCount; i++) {
 		if (_objects[i] != nullptr) {
@@ -262,7 +280,9 @@ void Playground::render(WindowHandler* windowhandler)
 		DrawLine3D(spos, epos, MAROON);
 
 	}
-
+	_elapsed += _targetDeltaTime;
+	//DrawBillboard(_camera._cam, _textures[3], Vector3{ 30.0f, 10.0f, 10.0f }, 20.0f, WHITE);
+	
 
 	EndShaderMode();
 	_camera.endFrame();

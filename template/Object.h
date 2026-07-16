@@ -54,6 +54,8 @@ public:
 	int _texId = 0;
 	int _modelId = 0;
 
+	bool _onRemove = false;
+
 };
 
 

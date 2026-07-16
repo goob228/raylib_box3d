@@ -4,34 +4,41 @@
 
 
 
-void EventHandler::processInput()
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void eh_processInput(EventHandler * self)
 {
-	_keys = 0;
-	_pressedKeys = 0;
+	self->_keys = 0;
+	self->_pressedKeys = 0;
 
-	if (IsKeyDown(KEY_W))     _keys |= EH_K_W;
-	if (IsKeyDown(KEY_S))     _keys |= EH_K_S;
-	if (IsKeyDown(KEY_D))     _keys |= EH_K_D;
-	if (IsKeyDown(KEY_A))     _keys |= EH_K_A;
-	if (IsKeyDown(KEY_E))     _keys |= EH_K_E;
-	if (IsKeyDown(KEY_SPACE)) _keys |= EH_K_SPACE;
-	if (IsKeyDown(KEY_R))     _keys |= EH_K_RESTART;
-	if (WindowShouldClose())  _keys |= EH_K_QUIT;
+	if (IsKeyDown(KEY_W))     self->_keys |= EH_K_W;
+	if (IsKeyDown(KEY_S))     self->_keys |= EH_K_S;
+	if (IsKeyDown(KEY_D))     self->_keys |= EH_K_D;
+	if (IsKeyDown(KEY_A))     self->_keys |= EH_K_A;
+	if (IsKeyDown(KEY_E))     self->_keys |= EH_K_E;
+	if (IsKeyDown(KEY_SPACE)) self->_keys |= EH_K_SPACE;
+	if (IsKeyDown(KEY_R))     self->_keys |= EH_K_RESTART;
+	if (WindowShouldClose())  self->_keys |= EH_K_QUIT;
 
 
-	if (IsKeyPressed(KEY_W))     _pressedKeys |= EH_K_W;
-	if (IsKeyPressed(KEY_S))     _pressedKeys |= EH_K_S;
-	if (IsKeyPressed(KEY_D))     _pressedKeys |= EH_K_D;
-	if (IsKeyPressed(KEY_A))     _pressedKeys |= EH_K_A;
-	if (IsKeyPressed(KEY_E))     _pressedKeys |= EH_K_E;
-	if (IsKeyPressed(KEY_SPACE)) _pressedKeys |= EH_K_SPACE;
-	if (IsKeyPressed(KEY_R))     _pressedKeys |= EH_K_RESTART;
-	if (WindowShouldClose())     _pressedKeys |= EH_K_QUIT;
+	if (IsKeyPressed(KEY_W))     self->_pressedKeys |= EH_K_W;
+	if (IsKeyPressed(KEY_S))     self->_pressedKeys |= EH_K_S;
+	if (IsKeyPressed(KEY_D))     self->_pressedKeys |= EH_K_D;
+	if (IsKeyPressed(KEY_A))     self->_pressedKeys |= EH_K_A;
+	if (IsKeyPressed(KEY_E))     self->_pressedKeys |= EH_K_E;
+	if (IsKeyPressed(KEY_SPACE)) self->_pressedKeys |= EH_K_SPACE;
+	if (IsKeyPressed(KEY_R))     self->_pressedKeys |= EH_K_RESTART;
+	if (WindowShouldClose())     self->_pressedKeys |= EH_K_QUIT;
 
 	Vector2 mdel = GetMouseDelta();
 
-	_mx = mdel.x;
-	_my = mdel.y;
-
-
+	self->_mx = mdel.x;
+	self->_my = mdel.y;
 }
+
+
+#ifdef __cplusplus
+}
+#endif
