@@ -4,41 +4,33 @@
 
 #include <raylib.h>
 
-/*
-class WindowHandler
-{
-public:
-
-
-
-	void init(int FPS);
-	void startFrame();
-	void endFrame();
-	void close();
-
-	int screenWidth = 800;
-	int screenHeight = 600;
-};*/
+#ifdef __cplusplus
+extern "C" {
+#endif 
 
 typedef struct WindowHandler {
-	void (*init)(WindowHandler* self, int FPS);
-	void (*startFrame)(WindowHandler* self);
-	void (*endFrame)(WindowHandler* self);
-	void (*close)(WindowHandler* self);
+	void (*init)(struct WindowHandler* self, int FPS);
+	void (*startFrame)(struct WindowHandler* self);
+	void (*endFrame)(struct WindowHandler* self);
+	void (*close)(struct WindowHandler* self);
 
-	int screenWidth = 800;
-	int screenHeight = 600;
-};
+	int screenWidth;
+	int screenHeight;
+} WindowHandler;
 
 
 
-void wh_init(WindowHandler* self, int FPS);
+void wh_init(struct WindowHandler* self, int FPS);
 
-void wh_startFrame(WindowHandler* self);
+void wh_startFrame(struct WindowHandler* self);
 
-void wh_endFrame(WindowHandler* self);
+void wh_endFrame(struct WindowHandler* self);
 
-void wh_close(WindowHandler* self);
+void wh_close(struct WindowHandler* self);
 
+
+#ifdef __cplusplus
+}
+#endif 
 
 #endif

@@ -4,11 +4,7 @@
 
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void eh_processInput(EventHandler * self)
+void eh_processInput(struct EventHandler * self)
 {
 	self->_keys = 0;
 	self->_pressedKeys = 0;
@@ -38,7 +34,3 @@ void eh_processInput(EventHandler * self)
 	self->_my = mdel.y;
 }
 
-
-#ifdef __cplusplus
-}
-#endif

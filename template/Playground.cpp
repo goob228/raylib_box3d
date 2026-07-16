@@ -16,100 +16,32 @@
 
 
 
-void Playground::add_stat_box()
+int pg_addObjectPointer(struct Playground* self, Object* object)
 {
-	b3BodyDef groundBodyDef = b3DefaultBodyDef();
-	groundBodyDef.position = b3Vec3{ 0.0f, -10.0f, 0.0f };
-	b3BodyId groundId = b3CreateBody(_worldId, &groundBodyDef);
-
-	b3BoxHull groundBox = b3MakeCubeHull(10.0f); //b3MakeBoxHull(50.0f, 10.0f, 50.0f);
-
-	b3ShapeDef groundShapeDef = b3DefaultShapeDef();
-	b3CreateHullShape(groundId, &groundShapeDef, &groundBox.base);
-	_bodies[_bodyCount] = groundId;
-	_bodyCount++;
-}
-
-void Playground::add_dyn_box()
-{
-	b3BodyDef bodyDef = b3DefaultBodyDef();
-	bodyDef.type = b3_dynamicBody;
-	bodyDef.position = b3Vec3{ 0.0f, 10.0f, 0.0f };
-	b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
-
-	b3BoxHull dynamicBox = b3MakeCubeHull(1.0f);
-
-	b3ShapeDef shapeDef = b3DefaultShapeDef();
-	shapeDef.density = 1.0f;
-	shapeDef.baseMaterial.friction = 0.3f;
-
-	b3CreateHullShape(bodyId, &shapeDef, &dynamicBox.base);
-	_bodies[_bodyCount] = bodyId;
-	_bodyCount++;
-}
-
-void Playground::add_dyn_box2()
-{
-	b3BodyDef bodyDef = b3DefaultBodyDef();
-	bodyDef.type = b3_dynamicBody;
-	bodyDef.position = b3Vec3{ -0.6f, 20.0f, -0.6f };
-	b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
-
-	b3BoxHull dynamicBox = b3MakeCubeHull(1.0f);
-
-	b3ShapeDef shapeDef = b3DefaultShapeDef();
-	shapeDef.density = 1.0f;
-	shapeDef.baseMaterial.friction = 0.3f;
-
-	b3CreateHullShape(bodyId, &shapeDef, &dynamicBox.base);
-	_bodies[_bodyCount] = bodyId;
-	_bodyCount++;
-}
-
-void Playground::add_dyn_sphere()
-{
-	b3BodyDef bodyDef = b3DefaultBodyDef();
-	bodyDef.type = b3_dynamicBody;
-	bodyDef.position = b3Vec3{ 1.1f, 15.0f, 1.1f };
-	b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
-
-	b3Sphere sphere = { b3Vec3_zero, 0.5f };
-
-	b3ShapeDef shapeDef = b3DefaultShapeDef();
-	shapeDef.density = 1.0f;
-	shapeDef.baseMaterial.friction = 0.5f;
-
-	b3CreateSphereShape(bodyId, &shapeDef, &sphere);
-	_bodies[_bodyCount] = bodyId;
-	_bodyCount++;
-}
-
-int Playground::addObject(Object* object)
-{
-	for (int i = 1; i < _objCount; i++) {
-		if (_objects[i] == nullptr) {
-			_objects[i] = object;
+	for (int i = 1; i < self->_objCount; i++) {
+		if (self->_objects[i] == nullptr) {
+			self->_objects[i] = object;
 			return i;
 		}
 	}
-	_objects[_objCount] = object;
-	_objCount += 1;
+	self->_objects[self->_objCount] = object;
+	self->_objCount += 1;
 
-	return _objCount - 1;
+	return self->_objCount - 1;
 }
 
-int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
+int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
 {
-	_objects[_objCount] = new Object();
-	_objects[_objCount]->_scale = scale;
-	_objects[_objCount]->_pos = pos;
-	_objects[_objCount]->_texId = texId;
-	_objects[_objCount]->_modelId = modelId;
-	_objects[_objCount]->_type = type;
-	_objects[_objCount]->updateMatrix();
+	self->_objects[self->_objCount] = new Object();
+	self->_objects[self->_objCount]->_scale = scale;
+	self->_objects[self->_objCount]->_pos = pos;
+	self->_objects[self->_objCount]->_texId = texId;
+	self->_objects[self->_objCount]->_modelId = modelId;
+	self->_objects[self->_objCount]->_type = type;
+	self->_objects[self->_objCount]->updateMatrix();
 
 	if (type == OBJ_PROP || type == OBJ_OBSTACLE) {
-		BoundingBox bb = GetModelBoundingBox(_models[modelId]);
+		BoundingBox bb = GetModelBoundingBox(self->_models[modelId]);
 
 		b3Transform transform = { 0 };
 		transform.p.x = (bb.max.x + bb.min.x) * scale.x / 2.0f;
@@ -125,7 +57,7 @@ int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, Ob
 		if (type == OBJ_PROP)
 			bodyDef.type = b3_dynamicBody;
 		bodyDef.position = b3Vec3{ pos.x, pos.y, pos.z };
-		b3BodyId bodyId = b3CreateBody(_worldId, &bodyDef);
+		b3BodyId bodyId = b3CreateBody(self->_worldId, &bodyDef);
 
 		b3BoxHull dynamicBox = b3MakeBoxHull(	(bb.max.x - bb.min.x) * scale.x / 2.0f,
 												(bb.max.y - bb.min.y) * scale.y / 2.0f,
@@ -136,77 +68,59 @@ int Playground::addObject(Vector3 pos, Vector3 scale, int texId, int modelId, Ob
 		shapeDef.baseMaterial.friction = 0.0f;
 
 		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, b3Vec3{1.0f,1.0f,1.0f});
-		_bodies[_bodyCount] = bodyId;
-		_objects[_objCount]->_physId = _bodyCount;
-		_bodyCount++;
+		self->_bodies[self->_bodyCount] = bodyId;
+		self->_objects[self->_objCount]->_physId = self->_bodyCount;
+		self->_bodyCount++;
 	}
 
-	_objCount += 1;
+	self->_objCount += 1;
 
-	return _objCount-1;
+	return self->_objCount-1;
 	
 }
 
 
-void Playground::delete_object()
+
+int pg_addTexture(struct Playground* self, char const * fileName)
 {
-	int i = _objCount-1;
-	if (_objects[i] != nullptr) {
-		int e = _objects[i]->_physId;
-		if (b3Body_IsValid(_bodies[e])) {
-			b3DestroyBody(_bodies[e]);
-		}
-
-		_bodyCount--;
-
-		delete _objects[i];
-		_objects[i] = nullptr;
-
-		
-	}
-	_objCount--;
-}
-
-int Playground::addTexture(char const * fileName)
-{
-	_textures[_textureCount] = LoadTexture(fileName);
-	_textureCount++;
+	self->_textures[self->_textureCount] = LoadTexture(fileName);
+	self->_textureCount++;
 
 	return 0;
 }
 
-int Playground::addModel(char const* fileName)
+int pg_addModel(struct Playground* self, char const* fileName)
 {
-	_models[_modelCount] = LoadModel(fileName);
-	_models[_modelCount].materials[0].shader = _basicShader;
-	_modelCount++;
+	self->_models[self->_modelCount] = LoadModel(fileName);
+	self->_models[self->_modelCount].materials[0].shader = self->_basicShader;
+	self->_modelCount++;
 
 	return 0;
 }
 
 
 
-void Playground::init(int targetFPS)
+void pg_init(struct Playground* self, int targetFPS)
 {
 
-	_targetFPS = targetFPS;
-	_targetDeltaTime = 1.0f / (float)_targetFPS;
+	self->_targetFPS = targetFPS;
+	self->_targetDeltaTime = 1.0f / (float)self->_targetFPS;
 
 #ifndef PLATFORM_WEB
 	if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
 		TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
 #endif
 
-	_camera.init();
+	self->_camera.init();
 
 
 	b3WorldDef worldDef = b3DefaultWorldDef();
 	worldDef.gravity = b3Vec3{ 0.0f, -10.0f, 0.0f };
 
-	_worldId = b3CreateWorld(&worldDef);
+	self->_worldId = b3CreateWorld(&worldDef);
 
 
-	_basicShader = LoadShader(0, "");
+	self->_basicShader = LoadShader(0, "");
 
 
 
@@ -214,54 +128,41 @@ void Playground::init(int targetFPS)
 
 }
 
-void Playground::update(EventHandler* eventhandler)
+void pg_update(struct Playground* self, EventHandler* eventhandler)
 {
 
-	_keys = eventhandler->_keys;
-	_pressedKeys = eventhandler->_pressedKeys;
-	_mx = eventhandler->_mx;
-	_my = eventhandler->_my;
+	self->_keys = eventhandler->_keys;
+	self->_pressedKeys = eventhandler->_pressedKeys;
+	self->_mx = eventhandler->_mx;
+	self->_my = eventhandler->_my;
 
-	_camera.update(this);
+	self->_camera.update(self);
 
-	b3World_Step(_worldId, _targetDeltaTime, 2);
+	b3World_Step(self->_worldId, self->_targetDeltaTime, 2);
 
 	
 
 
-	for (int i = 1; i <= _objCount; i++) {
-		if (_objects[i] != nullptr) {
-			_objects[i]->update(this);
-			if (_objects[i]->_onRemove) {
-				delete _objects[i];
-				_objects[i] = nullptr;
+	for (int i = 1; i <= self->_objCount; i++) {
+		if (self->_objects[i] != nullptr) {
+			self->_objects[i]->update(self);
+			if (self->_objects[i]->_onRemove) {
+				delete self->_objects[i];
+				self->_objects[i] = nullptr;
 			}
 		}
 	}
 }
 
-void Playground::render(WindowHandler* windowhandler)
+void pg_render(struct Playground* self, WindowHandler* windowhandler)
 {
-	_camera.startFrame();
-	BeginShaderMode(_basicShader);
-	//DrawPlane(Vector3{ 0.0f, 0.0f, 0.0f }, Vector2{ 32.0f, 32.0f }, LIGHTGRAY); // Draw ground
-	//DrawCube(Vector3{ -16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, BLUE);     // Draw a blue wall
-	//DrawCube(Vector3{ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
-	//DrawCube(Vector3{ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);
-
-	/*
-	{
-		b3Vec3 position = b3Body_GetPosition(_bodies[2]);
-		b3Quat rotation = b3Body_GetRotation(_bodies[2]);
-
-		windowhandler->drawBox(position.x, position.y, position.z, 2.0f);
-	}
-	*/
+	self->_camera.startFrame();
+	BeginShaderMode(self->_basicShader);
 
 
-	for (int i = 1; i <= _objCount; i++) {
-		if (_objects[i] != nullptr) {
-			_objects[i]->draw(this);
+	for (int i = 1; i <= self->_objCount; i++) {
+		if (self->_objects[i] != nullptr) {
+			self->_objects[i]->draw(self);
 		}
 	}
 
@@ -269,59 +170,58 @@ void Playground::render(WindowHandler* windowhandler)
 	Vector3 epos = Vector3{ 0 };
 
 	for (int i = 0; i < MAX_LINES/2-1; i++) {
-		spos.x = _lines[i * 2 + 0].x;
-		spos.y = _lines[i * 2 + 0].y;
-		spos.z = _lines[i * 2 + 0].z;
+		spos.x = self->_lines[i * 2 + 0].x;
+		spos.y = self->_lines[i * 2 + 0].y;
+		spos.z = self->_lines[i * 2 + 0].z;
 
-		epos.x = _lines[i * 2 + 1].x;
-		epos.y = _lines[i * 2 + 1].y;
-		epos.z = _lines[i * 2 + 1].z;
+		epos.x = self->_lines[i * 2 + 1].x;
+		epos.y = self->_lines[i * 2 + 1].y;
+		epos.z = self->_lines[i * 2 + 1].z;
 		
 		DrawLine3D(spos, epos, MAROON);
 
 	}
-	_elapsed += _targetDeltaTime;
-	//DrawBillboard(_camera._cam, _textures[3], Vector3{ 30.0f, 10.0f, 10.0f }, 20.0f, WHITE);
+	self->_elapsed += self->_targetDeltaTime;
 	
 
 	EndShaderMode();
-	_camera.endFrame();
+	self->_camera.endFrame();
 
 }
 
 
-void Playground::cleanUp()
+void pg_cleanUp(struct Playground* self)
 {
 
 	for (int i = 0; i < MAX_OBJECTS; i++) {
-		if (_objects[i] != nullptr) {
+		if (self->_objects[i] != nullptr) {
 			//_objects[i]->unLoad();
-			delete _objects[i];
-			_objects[i] = nullptr;
+			delete self->_objects[i];
+			self->_objects[i] = nullptr;
 		}
 	}
 	
 	for (int i = 0; i < MAX_BODIES; i++) {
-		if (b3Body_IsValid(_bodies[i])) {
-			b3DestroyBody(_bodies[i]);
+		if (b3Body_IsValid(self->_bodies[i])) {
+			b3DestroyBody(self->_bodies[i]);
 		}
 	}
 
 	for (int i = 0; i < MAX_TEXTURES; i++) {
-		if (_textures[i].id != rlGetTextureIdDefault()) rlUnloadTexture(_textures[i].id);
+		if (self->_textures[i].id != rlGetTextureIdDefault()) rlUnloadTexture(self->_textures[i].id);
 		
 	}
 
 	for (int i = 0; i < MAX_MODELS; i++) {
-		if (_models[i].meshCount > 0) {
-			_models[i].materials[0].shader = Shader{ 0 };
-			_models[i].materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
-			UnloadMaterial(_models[i].materials[0]);
-			_models[i].materials[0].maps = NULL;
-			UnloadModel(_models[i]);
+		if (self->_models[i].meshCount > 0) {
+			self->_models[i].materials[0].shader = Shader{ 0 };
+			self->_models[i].materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
+			UnloadMaterial(self->_models[i].materials[0]);
+			self->_models[i].materials[0].maps = NULL;
+			UnloadModel(self->_models[i]);
 		}
 	}
 
-	UnloadShader(_basicShader);
+	UnloadShader(self->_basicShader);
 
 }

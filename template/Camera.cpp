@@ -1,25 +1,28 @@
+
+
 #include "Camera.h"
 
 #include <raylib.h>
 #include <rcamera.h>
 
-#include "Object.h"
-#include "Playground.h"
 
+#include "Object.h"
+
+#include "Playground.h"
 
 Vector3 GameCamera::rotatedPos(Vector3 pos)
 {
 	float dist = 6.0f;
 	Vector3 offset = {
-		dist * cosf(_pitch + PI) * sinf(_yaw),
-		dist * sinf(_pitch + PI),
-		dist * cosf(_pitch + PI) * cosf(_yaw)
+		dist * cosf(this->_pitch + PI) * sinf(this->_yaw),
+		dist * sinf(this->_pitch + PI),
+		dist * cosf(this->_pitch + PI) * cosf(this->_yaw)
 	};
 
 	Vector3 outp = pos;
 
-	if (_parent) {
-		outp = Vector3Transform(outp, _parent->_transform);
+	if (this->_parent) {
+		outp = Vector3Transform(outp, this->_parent->_transform);
 	}
 	
 	return outp + offset;
@@ -28,40 +31,40 @@ Vector3 GameCamera::rotatedPos(Vector3 pos)
 void GameCamera::init()
 {
 	
-	_pos = Vector3{ 0.0f, 2.0f, 0.0f };
-	_target = Vector3{ 0.0f, 2.0f, 0.0f };
+	this->_pos = Vector3{ 0.0f, 2.0f, 0.0f };
+	this->_target = Vector3{ 0.0f, 2.0f, 0.0f };
 
-	_cam.position = _pos;
+	this->_cam.position = this->_pos;
 
-	_cam.target = _target;
-	_cam.up = _up;
-	_cam.fovy = 90.0f;
-	_cam.projection = CAMERA_PERSPECTIVE;
+	this->_cam.target = this->_target;
+	this->_cam.up = this->_up;
+	this->_cam.fovy = 90.0f;
+	this->_cam.projection = CAMERA_PERSPECTIVE;
 	
-	_camMode = CAMERA_CUSTOM;
+	this->_camMode = CAMERA_CUSTOM;
 
 }
 
 void GameCamera::update(Playground* playground)
 {
 	
-	if (_camMode == CAMERA_CUSTOM) {
-		_yaw -= playground->_mx * _sensitivity;
-		_pitch -= playground->_my * _sensitivity;
-		_pitch = Clamp(_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
-		if (_parent) {
-			_cam.position = rotatedPos(_pos);
-			_cam.target = Vector3Transform(_target, _parent->_transform);
-			Vector3 right = Vector3CrossProduct(_cam.target - _cam.position, Vector3{ 0.0f,-1.0f, 0.0f });
-			Vector3 newup = Vector3CrossProduct(_cam.target - _cam.position, right);
+	if (this->_camMode == CAMERA_CUSTOM) {
+		this->_yaw -= playground->_mx * this->_sensitivity;
+		this->_pitch -= playground->_my * this->_sensitivity;
+		this->_pitch = Clamp(this->_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
+		if (this->_parent) {
+			this->_cam.position = rotatedPos(this->_pos);
+			this->_cam.target = Vector3Transform(this->_target, this->_parent->_transform);
+			Vector3 right = Vector3CrossProduct(this->_cam.target - this->_cam.position, Vector3{ 0.0f,-1.0f, 0.0f });
+			Vector3 newup = Vector3CrossProduct(this->_cam.target - this->_cam.position, right);
 			newup = Vector3Normalize(newup);
-			_cam.up = newup;
+			this->_cam.up = newup;
 			//_cam.up = _up;
 		}
 		else {
-			_cam.position = rotatedPos(_pos);
-			_cam.target = _target;
-			_cam.up = _up;
+			this->_cam.position = rotatedPos(this->_pos);
+			this->_cam.target = this->_target;
+			this->_cam.up = this->_up;
 		}
 	}
 
@@ -69,12 +72,12 @@ void GameCamera::update(Playground* playground)
 
 
 
-	UpdateCamera(&_cam, _camMode);
+	UpdateCamera(&this->_cam, this->_camMode);
 }
 
 void GameCamera::startFrame()
 {
-	BeginMode3D(_cam);
+	BeginMode3D(this->_cam);
 }
 
 void GameCamera::endFrame()

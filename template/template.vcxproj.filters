@@ -21,10 +21,10 @@
     <ClCompile Include="Game.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="WindowHandler.cpp">
+    <ClCompile Include="WindowHandler.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="EventHandler.cpp">
+    <ClCompile Include="EventHandler.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Playground.cpp">

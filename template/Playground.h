@@ -22,31 +22,25 @@
 #define MAX_LINES 64
 
 
-class Playground
+typedef struct Playground
 {
-public:
+	
 
 
-	void add_stat_box();
-	void add_dyn_box();
-	void add_dyn_box2();
-	void add_dyn_sphere();
+	int (*addObjectPointer)(struct Playground* self, Object* object);
 
-	int addObject(Object* object);
+	int (*addObject)(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
 
-	int addObject(Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
-	void delete_object();
+	int (*addTexture)(struct Playground* self, char const* fileName);
 
-	int addTexture(char const * fileName);
-
-	int addModel(char const* fileName);
+	int (*addModel)(struct Playground* self, char const* fileName);
 
 
 
-	void init(int targetFPS);
-	void render(WindowHandler* windowhandler);
-	void cleanUp();
-	void update(EventHandler* eventhandler);
+	void (*init)(struct Playground* self, int targetFPS);
+	void (*render)(struct Playground* self, WindowHandler* windowhandler);
+	void (*cleanUp)(struct Playground* self);
+	void (*update)(struct Playground* self, EventHandler* eventhandler);
 
 	b3BodyId _bodies[MAX_BODIES] = { 0 };
 	Object* _objects[MAX_OBJECTS] = { nullptr };
@@ -80,6 +74,23 @@ public:
 
 	float _elapsed = 0.0f;
 
-};
+} Playground;
+
+
+int pg_addObjectPointer(struct Playground* self, Object* object);
+
+int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
+
+int pg_addTexture(struct Playground* self, char const* fileName);
+
+int pg_addModel(struct Playground* self, char const* fileName);
+
+void pg_init(struct Playground* self, int targetFPS);
+
+void pg_update(struct Playground* self, EventHandler* eventhandler);
+
+void pg_render(struct Playground* self, WindowHandler* windowhandler);
+
+void pg_cleanUp(struct Playground* self);
 
 #endif

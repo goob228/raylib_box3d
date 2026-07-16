@@ -153,14 +153,14 @@
   <ItemGroup>
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="EventHandler.cpp" />
+    <ClCompile Include="EventHandler.c" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="LuaBind.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="Playground.cpp" />
     <ClCompile Include="Prefabs.cpp" />
-    <ClCompile Include="WindowHandler.cpp" />
+    <ClCompile Include="WindowHandler.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Animation.h" />

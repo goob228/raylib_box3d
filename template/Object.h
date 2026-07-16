@@ -21,11 +21,10 @@ typedef enum
 	OBJ_LEN
 } ObjectType;
 
-class Playground;
+typedef struct Playground Playground;
 
 class Object
 {
-	friend Playground;
 public:
 
 	virtual void update(Playground* playground);

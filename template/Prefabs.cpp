@@ -45,11 +45,11 @@ Wheel* Wheel::create(Object* object)
 
 void Wheel::update(Playground* playground)
 {
-	if (_car) {
-		_pos = Vector3{ _defaultPos.x, _defaultPos.y - _prevHeight + _radius, _defaultPos.z};
-		_YZangle += _speed / _radius * playground->_targetDeltaTime;
-		_YZangle = fmodf(_YZangle, 2 * PI);
-		_rot = QuaternionFromEuler(_YZangle, _angle, 0.0f);
+	if (this->_car) {
+		this->_pos = Vector3{ this->_defaultPos.x, this->_defaultPos.y - this->_prevHeight + this->_radius, this->_defaultPos.z};
+		this->_YZangle += this->_speed / this->_radius * playground->_targetDeltaTime;
+		this->_YZangle = fmodf(this->_YZangle, 2 * PI);
+		this->_rot = QuaternionFromEuler(this->_YZangle, this->_angle, 0.0f);
 	}
 	updateMatrix();
 }
@@ -105,9 +105,9 @@ Car* Car::create(Object* object, Playground* playground)
 
 void Car::steer(float angleDeg)
 {
-	if (_wheelCount >= 2) {
-		_wheels[0]->_angle = angleDeg * DEG2RAD;
-		_wheels[1]->_angle = angleDeg * DEG2RAD;
+	if (this->_wheelCount >= 2) {
+		this->_wheels[0]->_angle = angleDeg * DEG2RAD;
+		this->_wheels[1]->_angle = angleDeg * DEG2RAD;
 	}
 }
 
@@ -117,7 +117,7 @@ void Car::update(Playground* playground)
 {
 	Object::update(playground);
 
-	b3BodyId bid = playground->_bodies[_physId];
+	b3BodyId bid = playground->_bodies[this->_physId];
 
 	float bodyMass = b3Body_GetMass(bid);
 
@@ -132,13 +132,13 @@ void Car::update(Playground* playground)
 	b3Vec3 wheelVel = { 0 };
 
 
-	for (int i = 0; i < _wheelCount; i++) {
-		if (!_wheels[i]) continue;
-		wheelVel = b3Body_GetLocalPointVelocity(bid, _wheels[i]->_defaultPos);
+	for (int i = 0; i < this->_wheelCount; i++) {
+		if (!this->_wheels[i]) continue;
+		wheelVel = b3Body_GetLocalPointVelocity(bid, this->_wheels[i]->_defaultPos);
 		wheelVel = b3Body_GetLocalVector(bid, wheelVel);
-		vecToWheel(&wheelVel, _wheels[i]->_angle);
-		b3Pos rayorigin = b3Body_GetWorldPoint(bid, _wheels[i]->_defaultPos);
-		b3Vec3 raytranslation = -_wheels[i]->_springLen * b3Vec3_axisY;
+		vecToWheel(&wheelVel, this->_wheels[i]->_angle);
+		b3Pos rayorigin = b3Body_GetWorldPoint(bid, this->_wheels[i]->_defaultPos);
+		b3Vec3 raytranslation = -this->_wheels[i]->_springLen * b3Vec3_axisY;
 
 		raytranslation = b3Body_GetWorldVector(bid, raytranslation);
 		
@@ -157,9 +157,9 @@ void Car::update(Playground* playground)
 
 
 
-		if (_accelerating) {
+		if (this->_accelerating) {
 
-			_wheels[i]->_speed += _torqueCurve.evaluate(_wheels[i]->_speed / _maxSpeed) * _torque * playground->_targetDeltaTime;
+			this->_wheels[i]->_speed += this->_torqueCurve.evaluate(this->_wheels[i]->_speed / _maxSpeed) * this->_torque * playground->_targetDeltaTime;
 
 			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
 			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
@@ -167,8 +167,8 @@ void Car::update(Playground* playground)
 		}
 		else {
 			float basicFriction = 10.0f * playground->_targetDeltaTime;
-			if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(basicFriction, 0.0f, _wheels[i]->_speed);
-			else _wheels[i]->_speed += Clamp(basicFriction, 0.0f, -_wheels[i]->_speed);
+			if (this->_wheels[i]->_speed > 0.0f) this->_wheels[i]->_speed -= Clamp(basicFriction, 0.0f, this->_wheels[i]->_speed);
+			else this->_wheels[i]->_speed += Clamp(basicFriction, 0.0f, -this->_wheels[i]->_speed);
 		}
 		
 
@@ -176,8 +176,8 @@ void Car::update(Playground* playground)
 		
 		
 
-		if (_braking && i >= 2) {
-			_wheels[i]->_speed = 0.0f;
+		if (this->_braking && i >= 2) {
+			this->_wheels[i]->_speed = 0.0f;
 			//if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(maxVelFric, 0.0f, _wheels[i]->_speed);
 			//else _wheels[i]->_speed += Clamp(maxVelFric, 0.0f, -_wheels[i]->_speed);
 		}
@@ -192,7 +192,7 @@ void Car::update(Playground* playground)
 			playground->_lines[i * 2 + 1].y = rayorigin.y + raytranslation.y;
 			playground->_lines[i * 2 + 1].z = rayorigin.z + raytranslation.z;
 
-			_wheels[i]->_prevHeight = _wheels[i]->_springLen;
+			this->_wheels[i]->_prevHeight = this->_wheels[i]->_springLen;
 
 		}
 		else {
@@ -231,26 +231,26 @@ void Car::update(Playground* playground)
 			float pifagor_2 = wheelVel.x * wheelVel.x + diff * diff;
 			float pifagor = sqrtf(pifagor_2);
 			if (pifagor_2 >= maxVelFric * maxVelFric) {
-				_wheels[i]->_sliding = true;
+				this->_wheels[i]->_sliding = true;
 				float factor = maxVelFric / pifagor;
 				wheelVel.x *= factor;
 				diff *= factor;
 			}
 			else {
-				_wheels[i]->_sliding = false;
+				this->_wheels[i]->_sliding = false;
 			}
 
 			//if (_accelerating);
-			_wheels[i]->_speed -= diff;
+			this->_wheels[i]->_speed -= diff;
 
 			frictionforce = -wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
-			vecToWheel(&frictionforce, -_wheels[i]->_angle);
+			vecToWheel(&frictionforce, -this->_wheels[i]->_angle);
 			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
 			
 			
 
 			torqueforce = diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
-			vecToWheel(&torqueforce, -_wheels[i]->_angle);
+			vecToWheel(&torqueforce, -this->_wheels[i]->_angle);
 			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 			
 			
@@ -265,7 +265,7 @@ void Car::update(Playground* playground)
 			b3Body_ApplyForce(bid, force, result.point, true);
 
 
-			_wheels[i]->_prevHeight = _wheels[i]->_springLen * result.fraction;
+			this->_wheels[i]->_prevHeight = this->_wheels[i]->_springLen * result.fraction;
 		}
 		float factor1 = 10.0f;
 
@@ -290,8 +290,8 @@ void Car::update(Playground* playground)
 		
 	}
 	
-	_accelerating = false;
-	_braking = false;
+	this->_accelerating = false;
+	this->_braking = false;
 }
 
 
@@ -299,29 +299,29 @@ void Car::update(Playground* playground)
 
 void Particle::update(Playground* playground)
 {
-	if (_onRemove) return;
+	if (this->_onRemove) return;
 
-	_timeSeconds += playground->_targetDeltaTime;
+	this->_timeSeconds += playground->_targetDeltaTime;
 
-	_pos += _linVel* playground->_targetDeltaTime;
-	_scale += _scaleVel * playground->_targetDeltaTime;
-	_alpha += _alphaVel * playground->_targetDeltaTime;
+	this->_pos += _linVel* playground->_targetDeltaTime;
+	this->_scale += _scaleVel * playground->_targetDeltaTime;
+	this->_alpha += _alphaVel * playground->_targetDeltaTime;
 
-	if (_timeSeconds > _lifeTimeSeconds) _onRemove = true;
+	if (this->_timeSeconds > this->_lifeTimeSeconds) this->_onRemove = true;
 }
 
 void Particle::draw(Playground* playground)
 {
-	if (_onRemove) return;
+	if (this->_onRemove) return;
 
 	rlDisableDepthMask();
 	BeginBlendMode(BLEND_ADDITIVE);
 	
 
-	DrawBillboardPro(playground->_camera._cam, playground->_textures[_texId],
+	DrawBillboardPro(playground->_camera._cam, playground->_textures[this->_texId],
 		Rectangle{0.0f, 0.0f, (float)playground->_textures[_texId].width, (float)playground->_textures[_texId].height},
-		_pos, playground->_camera._cam.up,
-		Vector2{ _scale.x, _scale.z }, Vector2{ _scale.x*0.5f, _scale.z*0.5f }, _anVel* _timeSeconds, Color{255, 255, 255, (unsigned char)b3ClampInt((int)_alpha, 0, 255)});
+		this->_pos, playground->_camera._cam.up,
+		Vector2{ this->_scale.x, this->_scale.z }, Vector2{ this->_scale.x*0.5f, this->_scale.z*0.5f }, this->_anVel* this->_timeSeconds, Color{255, 255, 255, (unsigned char)b3ClampInt((int)this->_alpha, 0, 255)});
 	EndBlendMode();
 	rlEnableDepthMask();
 }

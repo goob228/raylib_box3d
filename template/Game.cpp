@@ -20,7 +20,7 @@ Game::Game()
 void Game::quit()
 {
 
-	_playground->cleanUp();
+	_playground->cleanUp(_playground);
 	_windowhandler->close(_windowhandler);
 
 	lua_close(L);
@@ -47,14 +47,26 @@ int Game::init()
 	_windowhandler->endFrame = (&wh_endFrame);
 	_windowhandler->close = (&wh_close);
 
-	_playground = new Playground();
+	_windowhandler->screenWidth = 800;
+	_windowhandler->screenHeight = 600;
+
+	_playground = new Playground;
 
 	if (!_playground) return 1;
+
+	_playground->init = (&pg_init);
+	_playground->addModel = (&pg_addModel);
+	_playground->addTexture = (&pg_addTexture);
+	_playground->addObject = (&pg_addObject);
+	_playground->addObjectPointer = (&pg_addObjectPointer);
+	_playground->render = (&pg_render);
+	_playground->update = (&pg_update);
+	_playground->cleanUp = (&pg_cleanUp);
 
 	_running = true;
 
 	_windowhandler->init(_windowhandler, _targetFPS);
-	_playground->init(_targetFPS);
+	_playground->init(_playground, _targetFPS);
 
 	L = luaL_newstate();
 
@@ -91,10 +103,10 @@ void Game::startLoop()
 		lua_getglobal(L, "update");
 		lua_pcall(L, 0, 0, 0);
 
-		_playground->update(_eventhandler);
+		_playground->update(_playground, _eventhandler);
 		
 		_windowhandler->startFrame(_windowhandler);
-		_playground->render(_windowhandler);
+		_playground->render(_playground, _windowhandler);
 		_windowhandler->endFrame(_windowhandler);
 
 	}

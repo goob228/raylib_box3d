@@ -23,16 +23,16 @@ extern "C" {
 
 
 typedef struct EventHandler {
+	void (*processInput)(struct EventHandler* self);
 	uint16_t _keys;
 	uint16_t _pressedKeys;
 	float _mx;
 	float _my;
-	void (*processInput)(EventHandler* self);
 } EventHandler;
 
 
 
-void eh_processInput(EventHandler* self);
+void eh_processInput(struct EventHandler* self);
 
 #ifdef __cplusplus
 }

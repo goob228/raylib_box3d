@@ -7,18 +7,13 @@
 #include "EventHandler.h"
 #include "Prefabs.h"
 
-/*
-lua_getglobal(L, "pg");
-	Playground* pg = (Playground*)lua_touserdata(L, -1);
-*/
-
 
 int lua_addTexture(lua_State* L)
 {
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	pg->addTexture(lua_tostring(L, 1));
+	pg->addTexture(pg, lua_tostring(L, 1));
 	int idx = pg->_textureCount - 1;
 	lua_pushnumber(L, idx);
 
@@ -30,7 +25,7 @@ int lua_addModel(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	pg->addModel(lua_tostring(L, 1));
+	pg->addModel(pg, lua_tostring(L, 1));
 
 	int idx = pg->_modelCount - 1;
 	lua_pushnumber(L, idx);
@@ -53,7 +48,7 @@ int lua_addObject(lua_State* L)
 	float sy = (float)lua_tonumber(L, 8);
 	float sz = (float)lua_tonumber(L, 9);
 
-	int idx = pg->addObject(Vector3{ px, py, pz }, Vector3{ sx, sy, sz }, texId, modelId, type);
+	int idx = pg->addObject(pg, Vector3{ px, py, pz }, Vector3{ sx, sy, sz }, texId, modelId, type);
 
 	lua_pushnumber(L, idx);
 
