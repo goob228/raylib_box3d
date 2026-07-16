@@ -4,9 +4,6 @@
 
 #include <raylib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
 
 typedef struct WindowHandler {
 	void (*init)(struct WindowHandler* self, int FPS);
@@ -29,8 +26,5 @@ void wh_endFrame(struct WindowHandler* self);
 void wh_close(struct WindowHandler* self);
 
 
-#ifdef __cplusplus
-}
-#endif 
 
 #endif

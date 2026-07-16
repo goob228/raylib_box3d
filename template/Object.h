@@ -6,6 +6,7 @@
 #include <raymath.h>
 
 
+
 typedef enum 
 {
 	OBJ_NONE,
@@ -21,41 +22,39 @@ typedef enum
 	OBJ_LEN
 } ObjectType;
 
+#define OBJECT_FIELDS \
+	void (*update)(struct Object* self, Playground* playground); \
+	void (*updateMatrix)(struct Object* self); \
+	void (*draw)(struct Object* self, Playground* playground); \
+	void (*setParent)(struct Object* self, struct Object* object); \
+	Matrix _transform; \
+	Vector3 _pos; \
+	Quaternion _rot; \
+	Vector3 _scale; \
+	bool _alive; \
+	ObjectType _type; \
+	struct Object* _parent; \
+	int _physId; \
+	int _texId; \
+	int _modelId; \
+	bool _onRemove;
+
 typedef struct Playground Playground;
 
-class Object
+typedef struct Object
 {
-public:
 
-	virtual void update(Playground* playground);
+	OBJECT_FIELDS
 
-	void updateMatrix();
+} Object;
 
-	virtual void draw(Playground* playground);
+void ob_update(struct Object* self, Playground* playground);
 
-	void setParent(Object* object);
-	
+void ob_updateMatrix(struct Object* self);
 
-//protected:
+void ob_draw(struct Object* self, Playground* playground);
 
-	Matrix _transform = MatrixIdentity();
-
-	Vector3 _pos = Vector3{ 0.0f, 0.0f, 0.0f };
-	Quaternion _rot = QuaternionIdentity();
-	Vector3 _scale = Vector3{ 1.0f, 1.0f, 1.0f };
-
-	bool _alive = true;
-	ObjectType _type = OBJ_NONE;
-
-	Object* _parent;
-
-	int _physId = 0;
-	int _texId = 0;
-	int _modelId = 0;
-
-	bool _onRemove = false;
-
-};
+void ob_setParent(struct Object* self, struct Object* obj);
 
 
 

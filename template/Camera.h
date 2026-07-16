@@ -4,33 +4,36 @@
 #include <raylib.h>
 #include <rcamera.h>
 
+#include <stdbool.h>
 #include "Object.h"
 
 
-class GameCamera : public Object
+
+
+typedef struct GameCamera
 {
-public:
-	
 
-	void init();
-	void update(Playground* playground) override;
-	void draw(Playground* playground) override;
-	void startFrame();
-	void endFrame();
+	OBJECT_FIELDS
 
-	Vector3 rotatedPos(Vector3 pos);
+	void (*init)(struct GameCamera* self);
+	void (*startFrame)(struct GameCamera* self);
+	void (*endFrame)(struct GameCamera* self);
+
+	Vector3 (*rotatedPos)(struct GameCamera* self, Vector3 pos);
 	
-	Camera _cam = Camera{ 0 };
+	Camera _cam;
 	int _camMode;
 
-	Vector3 _target = Vector3{ 0.0f, 2.0f, 0.0f };
-	Vector3 _up = Vector3{ 0.0f, 1.0f, 0.0f };
+	Vector3 _target;
+	Vector3 _up;
 
-	float _pitch = 0.0f;
-	float _yaw = 0.0f;
-	float _sensitivity = 0.001f;
+	float _pitch;
+	float _yaw;
+	float _sensitivity;
 
-};
+} GameCamera;
+
+void gc_init(struct GameCamera* self);
 
 
 #endif

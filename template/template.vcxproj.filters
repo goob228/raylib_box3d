@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="main.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Game.cpp">
+    <ClCompile Include="Game.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="WindowHandler.c">
@@ -27,22 +27,22 @@
     <ClCompile Include="EventHandler.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Playground.cpp">
+    <ClCompile Include="Playground.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Camera.cpp">
+    <ClCompile Include="Camera.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Object.cpp">
+    <ClCompile Include="Object.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Prefabs.cpp">
+    <ClCompile Include="Prefabs.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="LuaBind.cpp">
+    <ClCompile Include="LuaBind.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Animation.cpp">
+    <ClCompile Include="Animation.c">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

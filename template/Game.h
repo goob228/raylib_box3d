@@ -11,18 +11,11 @@
 #endif
 
 
-class Game
+
+typedef struct Game
 {
-public:
 
-	Game();
 
-	void startLoop();
-	void quit();
-
-private:
-	
-	int init();
 	
 
 	WindowHandler* _windowhandler;
@@ -30,13 +23,17 @@ private:
 	Playground* _playground;
 	lua_State* L;
 
-	bool _running = false;
+	bool _running;
 
-	int _targetFPS = SET_FPS;
-	float _deltaTime = 1.0f / (float)_targetFPS;
+	int _targetFPS;
+	float _deltaTime;
 
 
-};
+} Game;
+
+
+void game_startLoop(struct Game* self);
+
 
 
 #endif

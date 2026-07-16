@@ -151,15 +151,15 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Animation.cpp" />
-    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Animation.c" />
+    <ClCompile Include="Camera.c" />
     <ClCompile Include="EventHandler.c" />
-    <ClCompile Include="Game.cpp" />
-    <ClCompile Include="LuaBind.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Object.cpp" />
-    <ClCompile Include="Playground.cpp" />
-    <ClCompile Include="Prefabs.cpp" />
+    <ClCompile Include="Game.c" />
+    <ClCompile Include="LuaBind.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="Object.c" />
+    <ClCompile Include="Playground.c" />
+    <ClCompile Include="Prefabs.c" />
     <ClCompile Include="WindowHandler.c" />
   </ItemGroup>
   <ItemGroup>

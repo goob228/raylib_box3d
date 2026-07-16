@@ -2,9 +2,6 @@
 #define EVENTHANDLER_H
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <stdint.h>
 
@@ -34,8 +31,5 @@ typedef struct EventHandler {
 
 void eh_processInput(struct EventHandler* self);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif

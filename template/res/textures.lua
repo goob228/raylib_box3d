@@ -70,7 +70,6 @@ models = {}
 
 for key, value in pairs(model_paths) do
     models[key] = addModel(value)
-    print(models[key])
 end
 
 
@@ -90,7 +89,6 @@ addObject(textures["car1_blue"], models.car1, types.PROP, 0.0, 10.0, -20.0, 1.0,
 addObject(textures["Bricks_06"], models.box_large, types.OBSTACLE, 0.0, -10.0, 0.0, 400.0, 10.0, 400.0);
 
 rotatedGround = addObject(textures["Bricks_06"], models.box_large, types.OBSTACLE, 0.0, -30.0, 0.0, 400.0, 10.0, 400.0);
-
 addObject(textures["car5_red"], models.car5, types.PROP, -30.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car5_taxi"], models.car5_taxi, types.PROP, -25.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 child = addObject(textures["car4_orange"], models.car4, types.EMPTY, -20.0, 30.0, 10.0, 1.0, 1.0, 1.0);

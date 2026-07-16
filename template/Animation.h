@@ -3,54 +3,56 @@
 
 #define CURVE_MAX_FLOAT 32
 
+
+#include <stdbool.h>
+
+
+
 float easeOutBack(float x);
 
 
-class LookUpCurve {
+typedef struct LookUpCurve {
 
-public:
+	float (*evaluate)(struct LookUpCurve* self, float x);
 
+	int len;
+	float val[CURVE_MAX_FLOAT];
 
-	float evaluate(float x);
-
-
-	int len = 0;
-
-	float val[CURVE_MAX_FLOAT] = { 0 };
-};
+} LookUpCurve;
 
 
 
-
-class Spring {
-
-public:
+typedef struct Spring {
 
 
-	void update(float deltaTimeSeconds);
+	void (*update)(struct Spring* self, float deltaTimeSeconds);
 
 
-	void setPos(float pos);
-	void setTargetPos(float targetPos);
-	void setDamping(float damp);
-	void setHertz(float frequency);
-	void evaluate();
+	void (*setPos)(struct Spring* self, float pos);
+	void (*setTargetPos)(struct Spring* self, float targetPos);
+	void (*setDamping)(struct Spring* self, float damp);
+	void (*setHertz)(struct Spring* self, float frequency);
+	void (*evaluate)(struct Spring* self);
 
-	float getPos();
-	float getVelocity();
+	float (*getPos)(struct Spring* self);
+	float (*getVelocity)(struct Spring* self);
 
-	float position = 0.0f;
-	float startPosition = 0.0f;
-	float velocity = 0.0f;
-	float startVelocity = 0.0f;
-	float hertz = 1.0f;
-	float damping = 1.0f;
-	float targetPosition = 0.0f;
-	float elapsedTime = 0.0f;
+	float position;
+	float startPosition;
+	float velocity;
+	float startVelocity;
+	float hertz;
+	float damping;
+	float targetPosition;
+	float elapsedTime;
+	bool used;
 
-	bool used = false;
+} Spring;
 
-};
+
+LookUpCurve curve_create();
+
+Spring spring_create();
 
 
 
