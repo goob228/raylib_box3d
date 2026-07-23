@@ -218,12 +218,17 @@ typedef struct Vector2 {
     float y;                // Vector y component
 } Vector2;
 
+#include "box3d/box3d.h"
+
+typedef b3Vec3 Vector3;
+/*
 // Vector3, 3 components
 typedef struct Vector3 {
     float x;                // Vector x component
     float y;                // Vector y component
     float z;                // Vector z component
 } Vector3;
+*/
 
 // Vector4, 4 components
 typedef struct Vector4 {

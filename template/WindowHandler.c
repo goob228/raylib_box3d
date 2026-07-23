@@ -5,9 +5,10 @@
 
 void wh_init(struct WindowHandler* self, int FPS)
 {
+
+	SetConfigFlags(FLAG_VSYNC_HINT); 
 	InitWindow(self->screenWidth, self->screenHeight, "template");
 
-	SetTargetFPS(FPS);
 
 	DisableCursor();
 }

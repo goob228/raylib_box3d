@@ -32,13 +32,8 @@ typedef struct Playground
 {
 	
 
-
-	int (*addObjectPointer)(struct Playground* self, Object* object);
-
 	int (*addObject)(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
-
 	int (*addTexture)(struct Playground* self, char const* fileName);
-
 	int (*addModel)(struct Playground* self, char const* fileName);
 
 
@@ -49,7 +44,7 @@ typedef struct Playground
 	void (*update)(struct Playground* self, EventHandler* eventhandler);
 
 	b3BodyId _bodies[MAX_BODIES];
-	Object* _objects[MAX_OBJECTS];
+	Object _objects[MAX_OBJECTS];
 	Texture2D _textures[MAX_TEXTURES];
 	Model _models[MAX_MODELS];
 	Spring _springs[MAX_SPRINGS];
@@ -66,7 +61,7 @@ typedef struct Playground
 
 	Shader _basicShader;
 
-	GameCamera _camera;
+	Object _camera;
 	b3WorldId _worldId;
 
 	int _targetFPS;
@@ -83,7 +78,6 @@ typedef struct Playground
 } Playground;
 
 
-int pg_addObjectPointer(struct Playground* self, Object* object);
 
 int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
 

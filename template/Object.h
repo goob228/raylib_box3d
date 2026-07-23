@@ -1,6 +1,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdint.h>
 
 #include <raylib.h>
 #include <raymath.h>
@@ -22,6 +23,8 @@ typedef enum
 	OBJ_LEN
 } ObjectType;
 
+#define MAX_OBJECT_DATA 256
+
 #define OBJECT_FIELDS \
 	void (*update)(struct Object* self, Playground* playground); \
 	void (*updateMatrix)(struct Object* self); \
@@ -37,7 +40,9 @@ typedef enum
 	int _physId; \
 	int _texId; \
 	int _modelId; \
-	bool _onRemove;
+	bool _onRemove;\
+	uint8_t data[MAX_OBJECT_DATA];
+
 
 typedef struct Playground Playground;
 

@@ -61,7 +61,6 @@ int game_init(struct Game* self)
 	self->_playground->addModel = (&pg_addModel);
 	self->_playground->addTexture = (&pg_addTexture);
 	self->_playground->addObject = (&pg_addObject);
-	self->_playground->addObjectPointer = (&pg_addObjectPointer);
 	self->_playground->render = (&pg_render);
 	self->_playground->update = (&pg_update);
 	self->_playground->cleanUp = (&pg_cleanUp);

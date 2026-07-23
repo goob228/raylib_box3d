@@ -10,17 +10,15 @@
 
 
 
-typedef struct GameCamera
+
+typedef struct
 {
+	void (*init)(Object* self);
+	void (*startFrame)(Object* self);
+	void (*endFrame)(Object* self);
 
-	OBJECT_FIELDS
+	Vector3(*rotatedPos)(Object* self, Vector3 pos);
 
-	void (*init)(struct GameCamera* self);
-	void (*startFrame)(struct GameCamera* self);
-	void (*endFrame)(struct GameCamera* self);
-
-	Vector3 (*rotatedPos)(struct GameCamera* self, Vector3 pos);
-	
 	Camera _cam;
 	int _camMode;
 
@@ -30,10 +28,9 @@ typedef struct GameCamera
 	float _pitch;
 	float _yaw;
 	float _sensitivity;
+} CameraData;
 
-} GameCamera;
-
-void gc_init(struct GameCamera* self);
+void gc_init(Object* self);
 
 
 #endif

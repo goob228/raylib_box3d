@@ -1,7 +1,7 @@
 #ifndef ANIMATION_H
 #define ANIMATION_H
 
-#define CURVE_MAX_FLOAT 32
+#define CURVE_MAX_FLOAT 16
 
 
 #include <stdbool.h>
@@ -12,11 +12,11 @@ float easeOutBack(float x);
 
 
 typedef struct LookUpCurve {
-
+	float val[CURVE_MAX_FLOAT];
 	float (*evaluate)(struct LookUpCurve* self, float x);
 
 	int len;
-	float val[CURVE_MAX_FLOAT];
+	
 
 } LookUpCurve;
 

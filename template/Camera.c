@@ -11,13 +11,14 @@
 #include "Playground.h"
 
 
-Vector3 gc_rotatedPos(struct GameCamera* self, Vector3 pos)
+Vector3 gc_rotatedPos(Object* self, Vector3 pos)
 {
+	CameraData* camdata = (CameraData*)self->data;
 	float dist = 6.0f;
 	Vector3 offset = {
-		dist * cosf(self->_pitch + PI) * sinf(self->_yaw),
-		dist * sinf(self->_pitch + PI),
-		dist * cosf(self->_pitch + PI) * cosf(self->_yaw)
+		dist * cosf(camdata->_pitch + PI) * sinf(camdata->_yaw),
+		dist * sinf(camdata->_pitch + PI),
+		dist * cosf(camdata->_pitch + PI) * cosf(camdata->_yaw)
 	};
 
 	Vector3 outp = pos;
@@ -34,26 +35,28 @@ Vector3 gc_rotatedPos(struct GameCamera* self, Vector3 pos)
 void gc_update(struct Object* obj, Playground* playground)
 {
 	
-	struct GameCamera* self = (struct GameCamera*)obj;
+	Object* self = obj;
 
-	if (self->_camMode == CAMERA_CUSTOM) {
-		self->_yaw -= playground->_mx * self->_sensitivity;
-		self->_pitch -= playground->_my * self->_sensitivity;
-		self->_pitch = Clamp(self->_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
+	CameraData* camdata = (CameraData*)self->data;
+
+	if (camdata->_camMode == CAMERA_CUSTOM) {
+		camdata->_yaw -= playground->_mx * camdata->_sensitivity;
+		camdata->_pitch -= playground->_my * camdata->_sensitivity;
+		camdata->_pitch = Clamp(camdata->_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
  		if (self->_parent) {
-			self->_cam.position = self->rotatedPos(self, self->_pos);
-			self->_cam.target = Vector3Transform(self->_target, self->_parent->_transform);
+			camdata->_cam.position = camdata->rotatedPos(self, self->_pos);
+			camdata->_cam.target = Vector3Transform(camdata->_target, self->_parent->_transform);
 			
-			Vector3 right = Vector3CrossProduct(Vector3Subtract(self->_cam.target, self->_cam.position), (Vector3){ 0.0f,-1.0f, 0.0f });
-			Vector3 newup = Vector3CrossProduct(Vector3Subtract(self->_cam.target, self->_cam.position), right);
+			Vector3 right = Vector3CrossProduct(Vector3Subtract(camdata->_cam.target, camdata->_cam.position), (Vector3){ 0.0f,-1.0f, 0.0f });
+			Vector3 newup = Vector3CrossProduct(Vector3Subtract(camdata->_cam.target, camdata->_cam.position), right);
 			newup = Vector3Normalize(newup);
-			self->_cam.up = newup;
+			camdata->_cam.up = newup;
 			//_cam.up = _up;
 		}
 		else {
-			self->_cam.position = self->rotatedPos(self, self->_pos);
-			self->_cam.target = self->_target;
-			self->_cam.up = self->_up;
+			camdata->_cam.position = camdata->rotatedPos(self, self->_pos);
+			camdata->_cam.target = camdata->_target;
+			camdata->_cam.up = camdata->_up;
 		}
 	}
 
@@ -61,12 +64,13 @@ void gc_update(struct Object* obj, Playground* playground)
 
 
 
-	UpdateCamera(&self->_cam, self->_camMode);
+	UpdateCamera(&camdata->_cam, camdata->_camMode);
 }
 
-void gc_startFrame(struct GameCamera* self)
+void gc_startFrame(Object* self)
 {
-	BeginMode3D(self->_cam);
+	CameraData* camdata = (CameraData*)self->data;
+	BeginMode3D(camdata->_cam);
 }
 
 void gc_endFrame(struct GameCamera* self)
@@ -80,30 +84,34 @@ void gc_draw(struct Object* self, Playground* playground)
 }
 
 
-void gc_init(struct GameCamera* self)
+void gc_init(Object* self)
 {
-
-	self->init = (&gc_init);
-	self->endFrame = (&gc_endFrame);
-	self->startFrame = (&gc_startFrame);
+	self->_pos = (Vector3){ 0.0f, 2.0f, 0.0f };
+	
 	self->update = (&gc_update);
-	self->rotatedPos = (&gc_rotatedPos);
 	self->setParent = (&ob_setParent);
 	self->draw = (&gc_draw);
 
-	self->_pitch = 0.0f;
-	self->_yaw = 0.0f;
-	self->_sensitivity = 0.001f;
+	CameraData* camdata = (CameraData*)self->data;
 
-	self->_pos = (Vector3){ 0.0f, 2.0f, 0.0f };
-	self->_target = (Vector3){ 0.0f, 2.0f, 0.0f };
+	camdata->init = (&gc_init);
+	camdata->endFrame = (&gc_endFrame);
+	camdata->startFrame = (&gc_startFrame);
+	camdata->rotatedPos = (&gc_rotatedPos);
 
-	self->_cam.position = self->_pos;
+	camdata->_pitch = 0.0f;
+	camdata->_yaw = 0.0f;
+	camdata->_sensitivity = 0.001f;
 
-	self->_cam.target = self->_target;
-	self->_cam.up = self->_up;
-	self->_cam.fovy = 90.0f;
-	self->_cam.projection = CAMERA_PERSPECTIVE;
 
-	self->_camMode = CAMERA_CUSTOM;
+	camdata->_target = (Vector3){ 0.0f, 2.0f, 0.0f };
+
+	camdata->_cam.position = self->_pos;
+
+	camdata->_cam.target = camdata->_target;
+	camdata->_cam.up = camdata->_up;
+	camdata->_cam.fovy = 90.0f;
+	camdata->_cam.projection = CAMERA_PERSPECTIVE;
+
+	camdata->_camMode = CAMERA_CUSTOM;
 }

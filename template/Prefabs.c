@@ -14,59 +14,40 @@
 #include <malloc.h>
 
 
-Vector3 b3Vec3TOVector3(b3Vec3 v)
-{
-	return (Vector3){ v.x, v.y, v.z };
-}
 
-b3Vec3 Vector3TOb3Vec3(Vector3 v)
-{
-	return (b3Vec3){ v.x, v.y, v.z };
-}
 
-Wheel* wheel_create(Object* object)
+Object* wheel_create(Object* object)
 {
-	Wheel* wheel = (Wheel*)malloc(sizeof(Wheel));
-	wheel->_transform = object->_transform;
-	wheel->_pos = object->_pos;
-	wheel->_defaultPos = (b3Vec3){wheel->_pos.x, wheel->_pos.y, wheel->_pos.z};
-	wheel->_rot = object->_rot;
-	wheel->_scale = object->_scale;
-	wheel->_alive = object->_alive;
-	wheel->_type = object->_type;
-	wheel->_physId = object->_physId;
-	wheel->_texId = object->_texId;
-	wheel->_modelId = object->_modelId;
+	Object* wheel = object;
 
-	
-	wheel->draw = object->draw;
-	wheel->updateMatrix = object->updateMatrix;
-	wheel->setParent = object->setParent;
 	wheel->update = (&wheel_update);
 
-	wheel->_springLen = 0.0f;
-	wheel->_prevHeight = 0.0f;
-	wheel->_angle = 0.0f;
-	wheel->_weight = 60.0f;
+	WheelData* wheeldata = (WheelData*)wheel->data;
 
-	wheel->_speed = 0.0f;
-	wheel->_radius = 0.45f;
-	wheel->_YZangle = 0.0f;
+	wheeldata->_defaultPos = (b3Vec3){ wheel->_pos.x, wheel->_pos.y, wheel->_pos.z };
+	wheeldata->_springLen = 0.0f;
+	wheeldata->_prevHeight = 0.0f;
+	wheeldata->_angle = 0.0f;
+	wheeldata->_weight = 60.0f;
 
+	wheeldata->_speed = 0.0f;
+	wheeldata->_radius = 0.45f;
+	wheeldata->_YZangle = 0.0f;
 
-	free(object);
 
 	return wheel;
 }
 
 void wheel_update(struct Object* obj, Playground* playground)
 {
-	struct Wheel* self = (struct Wheel*)obj;
-	if (self->_car) {
-		self->_pos = (Vector3){ self->_defaultPos.x, self->_defaultPos.y - self->_prevHeight + self->_radius, self->_defaultPos.z};
-		self->_YZangle += self->_speed / self->_radius * playground->_targetDeltaTime;
-		self->_YZangle = fmodf(self->_YZangle, 2 * PI);
-		self->_rot = QuaternionFromEuler(self->_YZangle, self->_angle, 0.0f);
+	Object* self = obj;
+	WheelData* wheeldata = (WheelData*)self->data;
+	if (wheeldata->_car) {
+		self->_pos = (Vector3){ wheeldata->_defaultPos.x, 
+				wheeldata->_defaultPos.y - wheeldata->_prevHeight + wheeldata->_radius, wheeldata->_defaultPos.z};
+		wheeldata->_YZangle += wheeldata->_speed / wheeldata->_radius * playground->_targetDeltaTime;
+		wheeldata->_YZangle = fmodf(wheeldata->_YZangle, 2 * PI);
+		self->_rot = QuaternionFromEuler(wheeldata->_YZangle, wheeldata->_angle, 0.0f);
 	}
 	self->updateMatrix((Object*)self);
 }
@@ -85,68 +66,58 @@ float zVecFromWheel(b3Vec3* vec, float angel)
 }
 
 
-Car* car_create(Object* object, Playground* playground)
+Object* car_create(Object* object, Playground* playground)
 {
-	Car* car = (Car*)malloc(sizeof(Car));
-	car->_transform = object->_transform;
-	car->_pos = object->_pos;
-	car->_rot = object->_rot;
-	car->_scale = object->_scale;
-	car->_alive = object->_alive;
-	car->_type = object->_type;
-	car->_physId = object->_physId;
-	car->_texId = object->_texId;
-	car->_modelId = object->_modelId;
-	car->_parent = object->_parent;
+	Object* car = object;
+
 	
 
-	car->og_update = object->update;
-	car->draw = object->draw;
-	car->setParent = object->setParent;
-	car->updateMatrix = object->updateMatrix;
+	CarData* cardata = (CarData*)car->data;
+
+	cardata->steer = (&car_steer);
+	cardata->og_update = object->update;
 	car->update = (&car_update);
-	car->steer = (&car_steer);
 
 
-	car->_springLen = 1.1f;
-	car->_springStiffness = 800.0f;
-	car->_springDamping = 0.9f;
-	car->_tireFriction = 0.8f;
-	car->_accelerating = false;
-	car->_braking = false;
-	car->_torqueCurve = curve_create();
-	car->_torque = 40.0f;
-	car->_maxSpeed = 70.0f;
-	car->_wheelCount = 0;
+	cardata->_springLen = 1.1f;
+	cardata->_springStiffness = 800.0f;
+	cardata->_springDamping = 0.9f;
+	cardata->_tireFriction = 0.8f;
+	cardata->_accelerating = false;
+	cardata->_braking = false;
+	cardata->_torqueCurve = curve_create();
+	cardata->_torque = 40.0f;
+	cardata->_maxSpeed = 70.0f;
+	cardata->_wheelCount = 0;
 
 	
 	
 	
-	car->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 20.0f * 0.25f;
+	cardata->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 20.0f * 0.25f;
 
 
 	b3Vec3 masscen = b3Body_GetLocalCenterOfMass(playground->_bodies[car->_physId]);
  
-	car->_springDamping = 5.0f;
+	cardata->_springDamping = 5.0f;
 
 
-	car->_torqueCurve.len = 11;
+	cardata->_torqueCurve.len = 11;
 	float mv[] = { 0.5f, 0.6f, 0.8f, 0.95f, 1.0f ,1.0f ,1.0f, 0.9f, 0.5f, 0.2f, 0.0f };
-	for (int i = 0; i < car->_torqueCurve.len; i++) {
-		car->_torqueCurve.val[i] = mv[i];
+	for (int i = 0; i < cardata->_torqueCurve.len; i++) {
+		cardata->_torqueCurve.val[i] = mv[i];
 	}
 
-	free(object);
 
 	return car;
 }
 
 
-void car_steer(struct Car* self, float angleDeg)
+void car_steer(struct Object* self, float angleDeg)
 {
-	if (self->_wheelCount >= 2) {
-		self->_wheels[0]->_angle = angleDeg * DEG2RAD;
-		self->_wheels[1]->_angle = angleDeg * DEG2RAD;
+	CarData* cardata = (CarData*)self->data;
+	if (cardata->_wheelCount >= 2) {
+		((WheelData*)cardata->_wheels[0]->data)->_angle = angleDeg * DEG2RAD;
+		((WheelData*)cardata->_wheels[1]->data)->_angle = angleDeg * DEG2RAD;
 	}
 }
 
@@ -154,8 +125,9 @@ void car_steer(struct Car* self, float angleDeg)
 
 void car_update(struct Object* obj, Playground* playground)
 {	
-	struct Car* self = (struct Car*)obj;
-	self->og_update(obj, playground);
+	struct Object* self = (struct Object*)obj;
+	CarData* cardata = (CarData*)self->data;
+	cardata->og_update(obj, playground);
 
 	b3BodyId bid = playground->_bodies[self->_physId];
 
@@ -172,13 +144,13 @@ void car_update(struct Object* obj, Playground* playground)
 	b3Vec3 wheelVel = { 0 };
 
 
-	for (int i = 0; i < self->_wheelCount; i++) {
-		if (!self->_wheels[i]) continue;
-		wheelVel = b3Body_GetLocalPointVelocity(bid, self->_wheels[i]->_defaultPos);
+	for (int i = 0; i < cardata->_wheelCount; i++) {
+		if (!cardata->_wheels[i]) continue;
+		wheelVel = b3Body_GetLocalPointVelocity(bid, ((WheelData*)cardata->_wheels[i]->data)->_defaultPos);
 		wheelVel = b3Body_GetLocalVector(bid, wheelVel);
-		vecToWheel(&wheelVel, self->_wheels[i]->_angle);
-		b3Pos rayorigin = b3Body_GetWorldPoint(bid, self->_wheels[i]->_defaultPos);
-		b3Vec3 raytranslation = (b3Vec3){0.0f, -self->_wheels[i]->_springLen, 0.0f };
+		vecToWheel(&wheelVel, ((WheelData*)cardata->_wheels[i]->data)->_angle);
+		b3Pos rayorigin = b3Body_GetWorldPoint(bid, ((WheelData*)cardata->_wheels[i]->data)->_defaultPos);
+		b3Vec3 raytranslation = (b3Vec3){0.0f, -((WheelData*)cardata->_wheels[i]->data)->_springLen, 0.0f };
 
 		raytranslation = b3Body_GetWorldVector(bid, raytranslation);
 		
@@ -197,9 +169,9 @@ void car_update(struct Object* obj, Playground* playground)
 
 
 
-		if (self->_accelerating) {
+		if (cardata->_accelerating) {
 
-			self->_wheels[i]->_speed += self->_torqueCurve.evaluate(&self->_torqueCurve, self->_wheels[i]->_speed / self->_maxSpeed) * self->_torque * playground->_targetDeltaTime;
+			((WheelData*)cardata->_wheels[i]->data)->_speed += cardata->_torqueCurve.evaluate(&cardata->_torqueCurve, ((WheelData*)cardata->_wheels[i]->data)->_speed / cardata->_maxSpeed) * cardata->_torque * playground->_targetDeltaTime;
 
 			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
 			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
@@ -207,8 +179,10 @@ void car_update(struct Object* obj, Playground* playground)
 		}
 		else {
 			float basicFriction = 10.0f * playground->_targetDeltaTime;
-			if (self->_wheels[i]->_speed > 0.0f) self->_wheels[i]->_speed -= Clamp(basicFriction, 0.0f, self->_wheels[i]->_speed);
-			else self->_wheels[i]->_speed += Clamp(basicFriction, 0.0f, -self->_wheels[i]->_speed);
+			if (((WheelData*)cardata->_wheels[i]->data)->_speed > 0.0f) 
+				((WheelData*)cardata->_wheels[i]->data)->_speed -= Clamp(basicFriction, 0.0f, ((WheelData*)cardata->_wheels[i]->data)->_speed);
+			else 
+				((WheelData*)cardata->_wheels[i]->data)->_speed += Clamp(basicFriction, 0.0f, -((WheelData*)cardata->_wheels[i]->data)->_speed);
 		}
 		
 
@@ -216,8 +190,8 @@ void car_update(struct Object* obj, Playground* playground)
 		
 		
 
-		if (self->_braking && i >= 2) {
-			self->_wheels[i]->_speed = 0.0f;
+		if (cardata->_braking && i >= 2) {
+			((WheelData*)cardata->_wheels[i]->data)->_speed = 0.0f;
 			//if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(maxVelFric, 0.0f, _wheels[i]->_speed);
 			//else _wheels[i]->_speed += Clamp(maxVelFric, 0.0f, -_wheels[i]->_speed);
 		}
@@ -232,7 +206,7 @@ void car_update(struct Object* obj, Playground* playground)
 			playground->_lines[i * 2 + 1].y = rayorigin.y + raytranslation.y;
 			playground->_lines[i * 2 + 1].z = rayorigin.z + raytranslation.z;
 
-			self->_wheels[i]->_prevHeight = self->_wheels[i]->_springLen;
+			((WheelData*)cardata->_wheels[i]->data)->_prevHeight = ((WheelData*)cardata->_wheels[i]->data)->_springLen;
 
 		}
 		else {
@@ -246,41 +220,41 @@ void car_update(struct Object* obj, Playground* playground)
 
 			springVel = (b3Vec3){ 0.0f, wheelVel.y, 0.0f };
 			springVel = b3Body_GetWorldVector(bid, springVel);
-			float spring_factor_pid = ((result.fraction - 1.0f) * self->_springStiffness);
+			float spring_factor_pid = ((result.fraction - 1.0f) * cardata->_springStiffness);
 			springforce = b3MulSub(b3Mul(raytranslation, (b3Vec3){ spring_factor_pid , spring_factor_pid
 			, spring_factor_pid
-			}), self->_springDamping, springVel);
+			}), cardata->_springDamping, springVel);
 			float scalarSpringForce = b3Dot(springforce, result.normal);
 			springforce = b3Mul(result.normal, (b3Vec3) { scalarSpringForce, scalarSpringForce
 			, scalarSpringForce
 			}); // scalarSpringForce * result.normal;
 
-			float diff = self->_wheels[i]->_speed - wheelVel.z;
+			float diff = ((WheelData*)cardata->_wheels[i]->data)->_speed - wheelVel.z;
 
 			float pifagor_2 = wheelVel.x * wheelVel.x + diff * diff;
 			float pifagor = sqrtf(pifagor_2);
 			if (pifagor_2 >= maxVelFric * maxVelFric) {
-				self->_wheels[i]->_sliding = true;
+				((WheelData*)cardata->_wheels[i]->data)->_sliding = true;
 				float factor = maxVelFric / pifagor;
 				wheelVel.x *= factor;
 				diff *= factor;
 			}
 			else {
-				self->_wheels[i]->_sliding = false;
+				((WheelData*)cardata->_wheels[i]->data)->_sliding = false;
 			}
 
 			//if (_accelerating);
-			self->_wheels[i]->_speed -= diff;
+			((WheelData*)cardata->_wheels[i]->data)->_speed -= diff;
 
 			frictionforce = (b3Vec3){ -wheelVel.x * (float)playground->_targetFPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
-			vecToWheel(&frictionforce, -self->_wheels[i]->_angle);
+			vecToWheel(&frictionforce, -((WheelData*)cardata->_wheels[i]->data)->_angle);
 			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
 			
 			
 
 			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)playground->_targetFPS * bodyMass * 0.25f };
 				//diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
-			vecToWheel(&torqueforce, -self->_wheels[i]->_angle);
+			vecToWheel(&torqueforce, -((WheelData*)cardata->_wheels[i]->data)->_angle);
 			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 			
 			
@@ -292,7 +266,7 @@ void car_update(struct Object* obj, Playground* playground)
 			b3Body_ApplyForce(bid, force, result.point, true);
 
 
-			self->_wheels[i]->_prevHeight = self->_wheels[i]->_springLen * result.fraction;
+			((WheelData*)cardata->_wheels[i]->data)->_prevHeight = ((WheelData*)cardata->_wheels[i]->data)->_springLen * result.fraction;
 		}
 		float factor1 = 10.0f;
 
@@ -301,9 +275,9 @@ void car_update(struct Object* obj, Playground* playground)
 		playground->_lines[8 + i * 2 + 0].y = rayorigin.y;
 		playground->_lines[8 + i * 2 + 0].z = rayorigin.z;
 		
-		playground->_lines[8 + i * 2 + 1].x = rayorigin.x + springforce.x * factor1 / self->_springStiffness;
-		playground->_lines[8 + i * 2 + 1].y = rayorigin.y + springforce.y * factor1 / self->_springStiffness;
-		playground->_lines[8 + i * 2 + 1].z = rayorigin.z + springforce.z * factor1 / self->_springStiffness;
+		playground->_lines[8 + i * 2 + 1].x = rayorigin.x + springforce.x * factor1 / cardata->_springStiffness;
+		playground->_lines[8 + i * 2 + 1].y = rayorigin.y + springforce.y * factor1 / cardata->_springStiffness;
+		playground->_lines[8 + i * 2 + 1].z = rayorigin.z + springforce.z * factor1 / cardata->_springStiffness;
 
 		float factor2 = 0.1f;
 		
@@ -311,45 +285,14 @@ void car_update(struct Object* obj, Playground* playground)
 		playground->_lines[16 + i * 2 + 0].y = rayorigin.y;
 		playground->_lines[16 + i * 2 + 0].z = rayorigin.z;
 
-		playground->_lines[16 + i * 2 + 1].x = rayorigin.x + frictionforce.x * factor2 / self->_wheels[i]->_weight;
-		playground->_lines[16 + i * 2 + 1].y = rayorigin.y + frictionforce.y * factor2 / self->_wheels[i]->_weight;// -weight * 0.25;
-		playground->_lines[16 + i * 2 + 1].z = rayorigin.z + frictionforce.z * factor2 / self->_wheels[i]->_weight;
+		playground->_lines[16 + i * 2 + 1].x = rayorigin.x + frictionforce.x * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;
+		playground->_lines[16 + i * 2 + 1].y = rayorigin.y + frictionforce.y * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;// -weight * 0.25;
+		playground->_lines[16 + i * 2 + 1].z = rayorigin.z + frictionforce.z * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;
 		
 	}
 	
-	self->_accelerating = false;
-	self->_braking = false;
-}
-
-
-
-
-void par_update(struct Particle* self, Playground* playground)
-{
-	if (self->_onRemove) return;
-
-	self->_timeSeconds += playground->_targetDeltaTime;
-	self->_pos = Vector3Add(self->_pos, Vector3Multiply(self->_linVel, (Vector3) { playground->_targetDeltaTime }));
-	self->_scale = Vector3Add(self->_scale, Vector3Multiply(self->_scaleVel, (Vector3) { playground->_targetDeltaTime }));
-	self->_alpha = self->_alpha + self->_alphaVel * playground->_targetDeltaTime;
-
-	if (self->_timeSeconds > self->_lifeTimeSeconds) self->_onRemove = true;
-}
-
-void par_draw(struct Particle* self, Playground* playground)
-{
-	if (self->_onRemove) return;
-
-	rlDisableDepthMask();
-	BeginBlendMode(BLEND_ADDITIVE);
-	
-
-	DrawBillboardPro(playground->_camera._cam, playground->_textures[self->_texId],
-		(Rectangle){0.0f, 0.0f, (float)playground->_textures[self->_texId].width, (float)playground->_textures[self->_texId].height},
-		self->_pos, playground->_camera._cam.up,
-		(Vector2){ self->_scale.x, self->_scale.z }, (Vector2){ self->_scale.x*0.5f, self->_scale.z*0.5f }, self->_anVel* self->_timeSeconds, (Color){255, 255, 255, (unsigned char)b3ClampInt((int)self->_alpha, 0, 255)});
-	EndBlendMode();
-	rlEnableDepthMask();
+	cardata->_accelerating = false;
+	cardata->_braking = false;
 }
 
 

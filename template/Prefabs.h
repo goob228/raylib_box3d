@@ -8,19 +8,17 @@
 #include "Animation.h"
 
 
-#define CAR_WHEEL_COUNT 8
+#define CAR_WHEEL_COUNT 6
 
-typedef struct Car Car;
 
-typedef struct Wheel
-{
-	OBJECT_FIELDS
+
+typedef struct {
 
 	b3Vec3 _defaultPos;
 
-	Car* _car;
+	Object* _car;
 
-	
+
 	float _springLen;
 	float _prevHeight;
 	float _angle;
@@ -33,17 +31,13 @@ typedef struct Wheel
 	bool _sliding;
 	bool _steering;
 
-} Wheel;
+} WheelData;
 
+typedef struct {
 
-typedef struct Car
-{ 
-	OBJECT_FIELDS
+	void (*steer)(Object* self, float angleDeg);
 
-
-	void (*steer)(struct Car* self, float angleDeg);
-	
-	void (*og_update)(struct Object* self, Playground* playground);
+	void (*og_update)(Object* self, Playground* playground);
 
 	float _springLen;
 
@@ -53,7 +47,7 @@ typedef struct Car
 
 	float _tireFriction;
 
-	
+
 
 	bool _accelerating;
 	bool _braking;
@@ -61,45 +55,25 @@ typedef struct Car
 	float _torque;
 	float _maxSpeed;
 
-	Wheel* _wheels[CAR_WHEEL_COUNT];
+	Object* _wheels[CAR_WHEEL_COUNT];
 
 	int _wheelCount;
-
-} Car;
-
-
-typedef struct Particle
-{
-	OBJECT_FIELDS
-
-	Vector3 _linVel;
-	Vector3 _scaleVel;
-	float _anVel;
-	float _timeSeconds;
-	float _lifeTimeSeconds;
-	float _alpha;
-	float _alphaVel;
-
-
-} Particle;
+} CarData;
 
 
 
 
 
-Wheel* wheel_create(Object* object);
+Object* wheel_create(Object* object);
 
 void wheel_update(struct Object* obj, Playground* playground);
 
-Car* car_create(Object* object, Playground* playground);
+Object* car_create(Object* object, Playground* playground);
 
-void car_steer(struct Car* self, float angleDeg);
+void car_steer(struct Object* self, float angleDeg);
 
 void car_update(struct Object* self, Playground* playground);
 
-void par_update(struct Particle* self, Playground* playground);
-
-void par_draw(struct Particle* self, Playground* playground);
 
 
 #endif
