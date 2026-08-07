@@ -96,7 +96,7 @@ Object* car_create(Object* object, Playground* playground)
 	cardata->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 20.0f * 0.25f;
 
 
-	b3Vec3 masscen = b3Body_GetLocalCenterOfMass(playground->_bodies[car->_physId]);
+	b3Vec3 masscen = b3Body_GetLocalCenter(playground->_bodies[car->_physId]);
  
 	cardata->_springDamping = 5.0f;
 

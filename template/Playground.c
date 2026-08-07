@@ -122,10 +122,7 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->_targetFPS = targetFPS;
 	self->_targetDeltaTime = 1.0f / (float)self->_targetFPS;
 
-#ifndef PLATFORM_WEB
-	if (ChangeDirectory("D:/Github/raylib_box3d/template/"))
-		TraceLog(LOG_ERROR, "Failed to set custom directory: %s", GetWorkingDirectory()); // FIXME TODO HACK
-#endif
+
 
 	gc_init(&self->_camera);
 

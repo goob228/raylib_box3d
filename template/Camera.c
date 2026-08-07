@@ -73,7 +73,7 @@ void gc_startFrame(Object* self)
 	BeginMode3D(camdata->_cam);
 }
 
-void gc_endFrame(struct GameCamera* self)
+void gc_endFrame(Object* self)
 {
 	EndMode3D();
 }
