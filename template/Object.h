@@ -23,7 +23,7 @@ typedef enum
 	OBJ_LEN
 } ObjectType;
 
-#define MAX_OBJECT_DATA 256
+#define MAX_OBJECT_DATA 1024
 
 #define OBJECT_FIELDS \
 	void (*update)(struct Object* self, Playground* playground); \
@@ -46,10 +46,27 @@ typedef enum
 
 typedef struct Playground Playground;
 
+
 typedef struct Object
 {
 
-	OBJECT_FIELDS
+	void (*update)(struct Object* self, Playground* playground);
+	void (*updateMatrix)(struct Object* self);
+	void (*draw)(struct Object* self, Playground* playground);
+	void (*setParent)(struct Object* self, struct Object* object);
+	uint8_t data[MAX_OBJECT_DATA];
+	struct Object* _parent;
+	Matrix _transform;
+	Quaternion _rot;
+	Vector3 _pos;
+	Vector3 _scale;
+	ObjectType _type;
+	int _physId;
+	int _texId;
+	int _modelId;
+	bool _onRemove;
+	bool _alive;
+	
 
 } Object;
 

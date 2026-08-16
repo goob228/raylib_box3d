@@ -11,9 +11,6 @@
 
 #include "Prefabs.h"
 
-#include "malloc.h"
-
-#include "stdio.h"
 
 
 
@@ -21,28 +18,29 @@
 
 int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
 {
-	self->_objects[self->_objCount]._transform = MatrixIdentity();
-	self->_objects[self->_objCount]._pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
-	self->_objects[self->_objCount]._rot = QuaternionIdentity(); 
-	self->_objects[self->_objCount]._scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
-	self->_objects[self->_objCount]._alive = true; 
-	self->_objects[self->_objCount]._type = OBJ_NONE; 
-	self->_objects[self->_objCount]._parent = (Object*)0; 
-	self->_objects[self->_objCount]._physId = 0; 
-	self->_objects[self->_objCount]._texId = 0; 
-	self->_objects[self->_objCount]._modelId = 0; 
-	self->_objects[self->_objCount]._onRemove = false;
+	int objid = self->_objCount;
+	self->_objects[objid]._transform = MatrixIdentity();
+	self->_objects[objid]._pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
+	self->_objects[objid]._rot = QuaternionIdentity(); 
+	self->_objects[objid]._scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
+	self->_objects[objid]._alive = true; 
+	self->_objects[objid]._type = OBJ_NONE; 
+	self->_objects[objid]._parent = (Object*)0; 
+	self->_objects[objid]._physId = 0; 
+	self->_objects[objid]._texId = 0; 
+	self->_objects[objid]._modelId = 0; 
+	self->_objects[objid]._onRemove = false;
 
-	self->_objects[self->_objCount].update = (&ob_update);
-	self->_objects[self->_objCount].updateMatrix = (&ob_updateMatrix);
-	self->_objects[self->_objCount].draw = (&ob_draw);
-	self->_objects[self->_objCount].setParent = (&ob_setParent);
-	self->_objects[self->_objCount]._scale = scale;
-	self->_objects[self->_objCount]._pos = pos;
-	self->_objects[self->_objCount]._texId = texId;
-	self->_objects[self->_objCount]._modelId = modelId;
-	self->_objects[self->_objCount]._type = type;
-	self->_objects[self->_objCount].updateMatrix(&self->_objects[self->_objCount]);
+	self->_objects[objid].update = (&ob_update);
+	self->_objects[objid].updateMatrix = (&ob_updateMatrix);
+	self->_objects[objid].draw = (&ob_draw);
+	self->_objects[objid].setParent = (&ob_setParent);
+	self->_objects[objid]._scale = scale;
+	self->_objects[objid]._pos = pos;
+	self->_objects[objid]._texId = texId;
+	self->_objects[objid]._modelId = modelId;
+	self->_objects[objid]._type = type;
+	self->_objects[objid].updateMatrix(&self->_objects[objid]);
 
 	if (type == OBJ_PROP || type == OBJ_OBSTACLE) {
 		BoundingBox bb = GetModelBoundingBox(self->_models[modelId]);
@@ -68,12 +66,12 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId,
 												(bb.max.z - bb.min.z) * scale.z / 2.0f);
 
 		b3ShapeDef shapeDef = b3DefaultShapeDef();
-		shapeDef.density = 50.0f;
+		shapeDef.density = 30.0f;
 		shapeDef.baseMaterial.friction = 0.5f;
 
 		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, (b3Vec3){1.0f,1.0f,1.0f});
 		self->_bodies[self->_bodyCount] = bodyId;
-		self->_objects[self->_objCount]._physId = self->_bodyCount;
+		self->_objects[objid]._physId = self->_bodyCount;
 		self->_bodyCount++;
 	}
 
@@ -135,8 +133,37 @@ void pg_init(struct Playground* self, int targetFPS)
 
 	self->_basicShader = LoadShader(0, "");
 
+	int ti = self->_objCount;
+	self->_objects[ti]._transform = MatrixIdentity();
+	self->_objects[ti]._rot = QuaternionIdentity();
+	self->_objects[ti]._pos = (Vector3){0.0f, 10.0f, 0.0f};
+	self->_objects[ti]._scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
+	self->_objects[ti]._alive = true; 
+	self->_objects[ti]._type = OBJ_NONE; 
+	self->_objects[ti]._parent = (Object*)0; 
+	self->_objects[ti]._physId = 0; 
+	self->_objects[ti]._texId = 0; 
+	self->_objects[ti]._modelId = 0; 
+	self->_objects[ti]._onRemove = false;
 
+	self->_objects[ti].update = (&ob_update);
+	self->_objects[ti].updateMatrix = (&ob_updateMatrix);
+	self->_objects[ti].draw = (&ob_draw);
+	self->_objects[ti].setParent = (&ob_setParent);
+	self->_objects[ti]._texId = 2;
+	
+	self->_models[self->_modelCount] = LoadModelFromMesh(GenMeshCylinder(0.5f, 2.0f, 8));
+	
 
+	self->_objects[ti]._modelId = self->_modelCount;
+	self->_objects[ti]._type = OBJ_OBSTACLE;
+	self->_objects[ti].updateMatrix(&self->_objects[ti]);
+
+	character_create(&self->_objects[ti], &self->_camera, self);
+
+	self->_camera.setParent(&self->_camera, &self->_objects[ti]);
+	self->_modelCount++;
+	self->_objCount++;
 
 
 }

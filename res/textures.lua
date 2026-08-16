@@ -95,7 +95,7 @@ child = addObject(textures["car4_orange"], models.car4, types.EMPTY, -20.0, 30.0
 addObject(textures["car1_blue"], models.car1, types.PROP, -15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car2_blue"], models.car2, types.PROP, -10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car3_red"], models.car3, types.PROP, -5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
-car = addObject(textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 100.0, 1.0, 1.0, 1.0);
+car = addObject(textures["car5_police"], models.car5_police, types.PROP, 0.0, 10.0, 40.0, 1.0, 1.0, 1.0);
 addObject(textures["car7_green"], models.car7, types.PROP, 5.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car8_mail"], models.car8, types.PROP, 10.0, 10.0, 10.0, 1.0, 1.0, 1.0);
 addObject(textures["car8_purple"], models.car8, types.PROP, 15.0, 10.0, 10.0, 1.0, 1.0, 1.0);
@@ -124,18 +124,18 @@ convertToWheel(wheel4)
 convertToCar(car)
 
 
-rotateObject(rotatedGround, 0.0, 0.0, 20.0)
+rotateObject(rotatedGround, 0.0, 0.0, 30.0)
 
 
 --childptr = getObjectPointer(pg, child)
 
-setDamping(car, 10000)
+setDamping(car, 3000)
 
-setMassCenter(car, 0.0, 0.3, 0.2)
+setMassCenter(car, 0.0, 0.4, 0.2)
 
 --setParent(childptr, carptr)
 
-setCameraParent(car)
+--setCameraParent(car)
 
 setCarToWheel(wheel1, car)
 
@@ -160,7 +160,7 @@ function update()
     setSpringTargetPos(steer_spring, 0.0)
 
     if isKeyPressed(K_E) then
-        addForceToObj(car, 0.0, 1000000.0, 0.0)
+        switchCameraType()
     end
 
 
@@ -173,15 +173,15 @@ function update()
     end
 
     if isKeyDown(K_W) then
-        carAccelerate(car)
+        --carAccelerate(car)
     end
 
     if isKeyDown(K_SPACE) then
-        carBrake(car)
+        --carBrake(car)
     end
 
     updateSpring(steer_spring)
-    carSteer(car, getSpringPos(steer_spring))
+    --carSteer(car, getSpringPos(steer_spring))
     
     
     return

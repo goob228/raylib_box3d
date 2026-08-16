@@ -234,6 +234,18 @@ int lua_setCameraParent(lua_State* L)
 	return 1;
 }
 
+int lua_switchCameraType(lua_State* L)
+{
+	lua_getglobal(L, "PLAYGROUND");
+	Playground* pg = (Playground*)lua_touserdata(L, -1);
+
+	CameraData* data = (CameraData*)pg->_camera.data;
+
+	data->type = (Cam_type)(((int)data->type + 1)%(int)CAM_TYPE_COUNT);
+
+	return 1;
+}
+
 int lua_setCarToWheel(lua_State* L)
 {
 	lua_getglobal(L, "PLAYGROUND");
@@ -485,6 +497,7 @@ void lual_init(lua_State* L, Playground* pg, EventHandler* eh)
 	lua_register(L, "isKeyPressed", lua_isKeyPressed);
 	lua_register(L, "isKeyDown", lua_isKeyDown);
 	lua_register(L, "setCameraParent", lua_setCameraParent);
+	lua_register(L, "switchCameraType", lua_switchCameraType);
 	lua_register(L, "createSpring", lua_createSpring);
 	lua_register(L, "updateSpring", lua_updateSpring);
 	lua_register(L, "setSpringPos", lua_setSpringPos);

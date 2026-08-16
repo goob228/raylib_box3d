@@ -1,11 +1,8 @@
 #include "Game.h"
 
 
-#ifdef NDEBUG
+
 int WinMain()
-#else 
-int main()
-#endif
 {
 	Game game;
 

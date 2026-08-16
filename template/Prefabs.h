@@ -60,20 +60,64 @@ typedef struct {
 	int _wheelCount;
 } CarData;
 
+#define PLANE_CAPACITY 8
 
+typedef struct
+{
+	float maxPush;
+	bool clipVelocity;
+} MoverShapeUserData;
 
+struct PlaneExtra
+{
+	b3Pos point;
+	b3ShapeId shapeId;
+};
+
+typedef struct {
+
+	b3CollisionPlane planes[PLANE_CAPACITY];
+	struct PlaneExtra planeExtras[PLANE_CAPACITY];
+	b3Capsule capsule;
+	b3Transform trans;
+
+	b3Vec3 velocity;
+
+	Object* camera;
+	Playground* playground;
+
+	float jumpSpeed;
+	float maxSpeed;
+	float minSpeed;
+	float stopSpeed;
+	float accelerate;
+	float friction;
+	float gravity;
+	float mass;
+
+	float pogoVelocity;
+
+	int planeCount;
+	int totalIterations;
+	int ignoreCount;
+	b3ShapeId* ignoreShapeIds;
+
+	bool onGround;
+	bool sprint;
+
+} CharacterData;
 
 
 Object* wheel_create(Object* object);
 
-void wheel_update(struct Object* obj, Playground* playground);
+void wheel_update(Object* obj, Playground* playground);
 
 Object* car_create(Object* object, Playground* playground);
 
-void car_steer(struct Object* self, float angleDeg);
+void car_steer(Object* self, float angleDeg);
 
-void car_update(struct Object* self, Playground* playground);
+void car_update(Object* self, Playground* playground);
 
-
+Object* character_create(Object* object, Object* camera, Playground* playground);
 
 #endif
