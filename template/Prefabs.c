@@ -557,24 +557,24 @@ void character_update(Object* obj, Playground* playground)
 	forward.y = 0.0f;
 	forward = b3Normalize(forward);
 
-	if (playground->_keys & EH_K_W) {
+	if (playground->eh._keys & EH_K_W) {
 		throttle.x += 1.0f;
 	}
-	if (playground->_keys & EH_K_S) {
+	if (playground->eh._keys & EH_K_S) {
 		throttle.x -= 1.0f;
 	}
-	if (playground->_keys & EH_K_A) {
+	if (playground->eh._keys & EH_K_A) {
 		throttle.y += 1.0f;
 	}
-	if (playground->_keys & EH_K_D) {
+	if (playground->eh._keys & EH_K_D) {
 		throttle.y -= 1.0f;
 	}
 
-	if ((playground->_keys & EH_K_SPACE) && data->onGround == true) {
+	if ((playground->eh._keys & EH_K_SPACE) && data->onGround == true) {
 		data->velocity.y = data->jumpSpeed;
 		data->onGround = false;
 	}
-	if ((playground->_keys & EH_K_SHIFT)) {
+	if (data->onGround && (playground->eh._keys & EH_K_SHIFT)) {
 		data->sprint = true;
 	} else {
 		data->sprint = false;
@@ -590,6 +590,7 @@ void character_update(Object* obj, Playground* playground)
 void char_draw(struct Object* self, Playground* playground)
 {	
 	CharacterData* data = (CharacterData*)self->data;
+	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	if (camdata->type == CAM_FIRST_PERSON) return;
 	playground->_models[self->_modelId].transform = self->_transform;

@@ -68,10 +68,7 @@ typedef struct Playground
 	float _targetDeltaTime;
 
 
-	uint16_t _keys;
-	uint16_t _pressedKeys;
-	float _mx;
-	float _my;
+	EventHandler eh;
 
 	float _elapsed;
 
@@ -79,19 +76,10 @@ typedef struct Playground
 
 
 
-int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
 
-int pg_addTexture(struct Playground* self, char const* fileName);
-
-int pg_addModel(struct Playground* self, char const* fileName);
 
 void pg_init(struct Playground* self, int targetFPS);
 
-void pg_update(struct Playground* self, EventHandler* eventhandler);
-
-void pg_render(struct Playground* self, WindowHandler* windowhandler);
-
-void pg_cleanUp(struct Playground* self);
 
 
 #endif

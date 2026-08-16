@@ -21,11 +21,10 @@
 
 
 typedef struct EventHandler {
-	void (*processInput)(struct EventHandler* self);
-	uint16_t _keys;
-	uint16_t _pressedKeys;
 	float _mx;
 	float _my;
+	uint16_t _keys;
+	uint16_t _pressedKeys;
 } EventHandler;
 
 

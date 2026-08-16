@@ -40,35 +40,22 @@ int game_init(struct Game* self)
 
 	self->_eventhandler = (EventHandler*)malloc(sizeof(EventHandler));
 	if (!self->_eventhandler) return 1;
-	self->_eventhandler->processInput = (&eh_processInput);
 
 	self->_windowhandler = (WindowHandler*)malloc(sizeof(WindowHandler));
 
 	if (!self->_windowhandler) return 1;
-	self->_windowhandler->init = (&wh_init);
-	self->_windowhandler->startFrame = (&wh_startFrame);
-	self->_windowhandler->endFrame = (&wh_endFrame);
-	self->_windowhandler->close = (&wh_close);
-
-	self->_windowhandler->screenWidth = 800;
-	self->_windowhandler->screenHeight = 600;
+	wh_init(self->_windowhandler, self->_targetFPS);
 
 	self->_playground = (Playground*)malloc(sizeof(Playground));
 
 	if (!self->_playground) return 1;
 
-	self->_playground->init = (&pg_init);
-	self->_playground->addModel = (&pg_addModel);
-	self->_playground->addTexture = (&pg_addTexture);
-	self->_playground->addObject = (&pg_addObject);
-	self->_playground->render = (&pg_render);
-	self->_playground->update = (&pg_update);
-	self->_playground->cleanUp = (&pg_cleanUp);
+	pg_init(self->_playground, self->_targetFPS);
+
 
 	self->_running = true;
 
-	self->_windowhandler->init(self->_windowhandler, self->_targetFPS);
-	self->_playground->init(self->_playground, self->_targetFPS);
+	
 
 	self->L = luaL_newstate();
 
@@ -90,7 +77,7 @@ void game_startLoop(struct Game* self)
 
 	while (self->_running) {
 
-		self->_eventhandler->processInput(self->_eventhandler);
+		eh_processInput(self->_eventhandler);
 
 		if (self->_eventhandler->_keys & EH_K_QUIT) {
 			self->_running = false;

@@ -16,15 +16,7 @@ typedef struct WindowHandler {
 } WindowHandler;
 
 
-
 void wh_init(struct WindowHandler* self, int FPS);
-
-void wh_startFrame(struct WindowHandler* self);
-
-void wh_endFrame(struct WindowHandler* self);
-
-void wh_close(struct WindowHandler* self);
-
 
 
 #endif

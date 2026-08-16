@@ -12,7 +12,17 @@
 #include "Prefabs.h"
 
 
+void pg_update(struct Playground* self, EventHandler* eventhandler);
 
+void pg_render(struct Playground* self, WindowHandler* windowhandler);
+
+void pg_cleanUp(struct Playground* self);
+
+int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
+
+int pg_addTexture(struct Playground* self, char const* fileName);
+
+int pg_addModel(struct Playground* self, char const* fileName);
 
 
 
@@ -61,15 +71,21 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId,
 		bodyDef.position = (b3Vec3){ pos.x, pos.y, pos.z };
 		b3BodyId bodyId = b3CreateBody(self->_worldId, &bodyDef);
 
+		b3ShapeDef shapeDef = b3DefaultShapeDef();
+		shapeDef.density = 30.0f;
+		shapeDef.baseMaterial.friction = 0.5f;
+		
 		b3BoxHull dynamicBox = b3MakeBoxHull(	(bb.max.x - bb.min.x) * scale.x / 2.0f,
 												(bb.max.y - bb.min.y) * scale.y / 2.0f,
 												(bb.max.z - bb.min.z) * scale.z / 2.0f);
 
-		b3ShapeDef shapeDef = b3DefaultShapeDef();
-		shapeDef.density = 30.0f;
-		shapeDef.baseMaterial.friction = 0.5f;
+		
 
 		b3CreateTransformedHullShape(bodyId, &shapeDef, &dynamicBox.base, transform, (b3Vec3){1.0f,1.0f,1.0f});
+		
+	
+
+
 		self->_bodies[self->_bodyCount] = bodyId;
 		self->_objects[objid]._physId = self->_bodyCount;
 		self->_bodyCount++;
@@ -104,6 +120,14 @@ int pg_addModel(struct Playground* self, char const* fileName)
 
 void pg_init(struct Playground* self, int targetFPS)
 {
+
+	self->addModel = (&pg_addModel);
+	self->addTexture = (&pg_addTexture);
+	self->addObject = (&pg_addObject);
+	self->render = (&pg_render);
+	self->update = (&pg_update);
+	self->cleanUp = (&pg_cleanUp);
+
 	for (int i = 0; i < MAX_SPRINGS; i++) {
 		self->_objects[i]._onRemove = true;
 	}
@@ -171,13 +195,10 @@ void pg_init(struct Playground* self, int targetFPS)
 void pg_update(struct Playground* self, EventHandler* eventhandler)
 {
 
-	self->_keys = eventhandler->_keys;
-	self->_pressedKeys = eventhandler->_pressedKeys;
-	self->_mx = eventhandler->_mx;
-	self->_my = eventhandler->_my;
+	self->eh = *eventhandler;
 	self->_camera.update((Object*)&self->_camera, self);
 
-	b3World_Step(self->_worldId, self->_targetDeltaTime, 2);
+	b3World_Step(self->_worldId, self->_targetDeltaTime, 1);
 
 	
 

@@ -39,8 +39,8 @@ void gc_update(struct Object* obj, Playground* playground)
 	CameraData* camdata = (CameraData*)self->data;
 
 	if (camdata->_camMode == CAMERA_CUSTOM) {
-		camdata->_yaw -= playground->_mx * camdata->_sensitivity;
-		camdata->_pitch -= playground->_my * camdata->_sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
+		camdata->_yaw -= playground->eh._mx * camdata->_sensitivity;
+		camdata->_pitch -= playground->eh._my * camdata->_sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
 		camdata->_pitch = Clamp(camdata->_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
 		camdata->dist *= (1.0f - GetMouseWheelMove()*0.1f);
  		if (self->_parent) {
