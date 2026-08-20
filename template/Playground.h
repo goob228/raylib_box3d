@@ -43,34 +43,34 @@ typedef struct Playground
 	void (*cleanUp)(struct Playground* self);
 	void (*update)(struct Playground* self, EventHandler* eventhandler);
 
-	b3BodyId _bodies[MAX_BODIES];
-	Object _objects[MAX_OBJECTS];
-	Texture2D _textures[MAX_TEXTURES];
-	Model _models[MAX_MODELS];
-	Spring _springs[MAX_SPRINGS];
+	b3BodyId bodies[MAX_BODIES];
+	Object objects[MAX_OBJECTS];
+	Texture2D textures[MAX_TEXTURES];
+	Model models[MAX_MODELS];
+	Spring springs[MAX_SPRINGS];
 
 
 
-	b3Pos _lines[MAX_LINES];
+	b3Pos lines[MAX_LINES];
 
-	int _bodyCount;
-	int _objCount;
-	int _textureCount;
-	int _modelCount;
-	int _springCount;
+	int bodyCount;
+	int objCount;
+	int textureCount;
+	int modelCount;
+	int springCount;
 
-	Shader _basicShader;
+	Shader basicShader;
 
-	Object _camera;
-	b3WorldId _worldId;
+	Object camera;
+	b3WorldId worldId;
 
-	int _targetFPS;
-	float _targetDeltaTime;
+	int targetFPS;
+	float targetDeltaTime;
 
 
 	EventHandler eh;
 
-	float _elapsed;
+	float elapsed;
 
 } Playground;
 

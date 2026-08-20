@@ -14,22 +14,22 @@
 
 typedef struct {
 
-	b3Vec3 _defaultPos;
+	b3Vec3 defaultPos;
 
-	Object* _car;
+	Object* car;
 
 
-	float _springLen;
-	float _prevHeight;
-	float _angle;
-	float _weight;
+	float springLen;
+	float prevHeight;
+	float angle;
+	float weight;
 
-	float _speed;
-	float _radius;
-	float _YZangle;
+	float speed;
+	float radius;
+	float YZangle;
 
-	bool _sliding;
-	bool _steering;
+	bool sliding;
+	bool steering;
 
 } WheelData;
 
@@ -39,25 +39,25 @@ typedef struct {
 
 	void (*og_update)(Object* self, Playground* playground);
 
-	float _springLen;
+	float springLen;
 
-	float _springStiffness;
+	float springStiffness;
 
-	float _springDamping;
+	float springDamping;
 
-	float _tireFriction;
+	float tireFriction;
 
 
 
-	bool _accelerating;
-	bool _braking;
-	LookUpCurve _torqueCurve;
-	float _torque;
-	float _maxSpeed;
+	bool accelerating;
+	bool braking;
+	LookUpCurve torqueCurve;
+	float torque;
+	float maxSpeed;
 
-	Object* _wheels[CAR_WHEEL_COUNT];
+	Object* wheels[CAR_WHEEL_COUNT];
 
-	int _wheelCount;
+	int wheelCount;
 } CarData;
 
 #define PLANE_CAPACITY 8

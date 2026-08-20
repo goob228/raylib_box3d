@@ -25,15 +25,15 @@ typedef struct
 
 	Vector3 (*rotatedPos)  (Object* self, Vector3 pos);
 
-	Camera _cam;
-	int _camMode;
+	Camera cam;
+	int camMode;
 
-	Vector3 _target;
-	Vector3 _up;
+	Vector3 target;
+	Vector3 up;
 
-	float _pitch;
-	float _yaw;
-	float _sensitivity;
+	float pitch;
+	float yaw;
+	float sensitivity;
 
 	float dist;
 

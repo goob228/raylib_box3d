@@ -25,15 +25,15 @@ Object* wheel_create(Object* object)
 
 	WheelData* wheeldata = (WheelData*)wheel->data;
 
-	wheeldata->_defaultPos = (b3Vec3){ wheel->_pos.x, wheel->_pos.y, wheel->_pos.z };
-	wheeldata->_springLen = 0.0f;
-	wheeldata->_prevHeight = 0.0f;
-	wheeldata->_angle = 0.0f;
-	wheeldata->_weight = 60.0f;
+	wheeldata->defaultPos = (b3Vec3){ wheel->pos.x, wheel->pos.y, wheel->pos.z };
+	wheeldata->springLen = 0.0f;
+	wheeldata->prevHeight = 0.0f;
+	wheeldata->angle = 0.0f;
+	wheeldata->weight = 60.0f;
 
-	wheeldata->_speed = 0.0f;
-	wheeldata->_radius = 0.45f;
-	wheeldata->_YZangle = 0.0f;
+	wheeldata->speed = 0.0f;
+	wheeldata->radius = 0.45f;
+	wheeldata->YZangle = 0.0f;
 
 
 	return wheel;
@@ -43,12 +43,12 @@ void wheel_update(Object* obj, Playground* playground)
 {
 	Object* self = obj;
 	WheelData* wheeldata = (WheelData*)self->data;
-	if (wheeldata->_car) {
-		self->_pos = (Vector3){ wheeldata->_defaultPos.x, 
-				wheeldata->_defaultPos.y - wheeldata->_prevHeight + wheeldata->_radius, wheeldata->_defaultPos.z};
-		wheeldata->_YZangle += wheeldata->_speed / wheeldata->_radius * playground->_targetDeltaTime;
-		wheeldata->_YZangle = fmodf(wheeldata->_YZangle, 2 * PI);
-		self->_rot = QuaternionFromEuler(wheeldata->_YZangle, wheeldata->_angle, 0.0f);
+	if (wheeldata->car) {
+		self->pos = (Vector3){ wheeldata->defaultPos.x, 
+				wheeldata->defaultPos.y - wheeldata->prevHeight + wheeldata->radius, wheeldata->defaultPos.z};
+		wheeldata->YZangle += wheeldata->speed / wheeldata->radius * playground->targetDeltaTime;
+		wheeldata->YZangle = fmodf(wheeldata->YZangle, 2 * PI);
+		self->rot = QuaternionFromEuler(wheeldata->YZangle, wheeldata->angle, 0.0f);
 	}
 	self->updateMatrix((Object*)self);
 }
@@ -80,32 +80,32 @@ Object* car_create(Object* object, Playground* playground)
 	car->update = (&car_update);
 
 
-	cardata->_springLen = 1.1f;
-	cardata->_springStiffness = 800.0f;
-	cardata->_springDamping = 0.9f;
-	cardata->_tireFriction = 0.8f;
-	cardata->_accelerating = false;
-	cardata->_braking = false;
-	cardata->_torqueCurve = curve_create();
-	cardata->_torque = 40.0f;
-	cardata->_maxSpeed = 70.0f;
-	cardata->_wheelCount = 0;
+	cardata->springLen = 1.1f;
+	cardata->springStiffness = 800.0f;
+	cardata->springDamping = 0.9f;
+	cardata->tireFriction = 0.8f;
+	cardata->accelerating = false;
+	cardata->braking = false;
+	cardata->torqueCurve = curve_create();
+	cardata->torque = 40.0f;
+	cardata->maxSpeed = 70.0f;
+	cardata->wheelCount = 0;
 
 	
 	
 	
-	cardata->_springStiffness = 10.0f * b3Body_GetMass(playground->_bodies[car->_physId]) * 20.0f * 0.25f;
+	cardata->springStiffness = 10.0f * b3Body_GetMass(playground->bodies[car->physId]) * 20.0f * 0.25f;
 
 
-	b3Vec3 masscen = b3Body_GetLocalCenter(playground->_bodies[car->_physId]);
+	b3Vec3 masscen = b3Body_GetLocalCenter(playground->bodies[car->physId]);
  
-	cardata->_springDamping = 5.0f;
+	cardata->springDamping = 5.0f;
 
 
-	cardata->_torqueCurve.len = 11;
+	cardata->torqueCurve.len = 11;
 	float mv[] = { 0.5f, 0.6f, 0.8f, 0.95f, 1.0f ,1.0f ,1.0f, 0.9f, 0.5f, 0.2f, 0.0f };
-	for (int i = 0; i < cardata->_torqueCurve.len; i++) {
-		cardata->_torqueCurve.val[i] = mv[i];
+	for (int i = 0; i < cardata->torqueCurve.len; i++) {
+		cardata->torqueCurve.val[i] = mv[i];
 	}
 
 
@@ -116,9 +116,9 @@ Object* car_create(Object* object, Playground* playground)
 void car_steer(Object* self, float angleDeg)
 {
 	CarData* cardata = (CarData*)self->data;
-	if (cardata->_wheelCount >= 2) {
-		((WheelData*)cardata->_wheels[0]->data)->_angle = angleDeg * DEG2RAD;
-		((WheelData*)cardata->_wheels[1]->data)->_angle = angleDeg * DEG2RAD;
+	if (cardata->wheelCount >= 2) {
+		((WheelData*)cardata->wheels[0]->data)->angle = angleDeg * DEG2RAD;
+		((WheelData*)cardata->wheels[1]->data)->angle = angleDeg * DEG2RAD;
 	}
 }
 
@@ -130,7 +130,7 @@ void car_update(Object* obj, Playground* playground)
 	CarData* cardata = (CarData*)self->data;
 	cardata->og_update(obj, playground);
 
-	b3BodyId bid = playground->_bodies[self->_physId];
+	b3BodyId bid = playground->bodies[self->physId];
 
 	float bodyMass = b3Body_GetMass(bid);
 
@@ -145,19 +145,19 @@ void car_update(Object* obj, Playground* playground)
 	b3Vec3 wheelVel = { 0 };
 
 
-	for (int i = 0; i < cardata->_wheelCount; i++) {
-		if (!cardata->_wheels[i]) continue;
-		wheelVel = b3Body_GetLocalPointVelocity(bid, ((WheelData*)cardata->_wheels[i]->data)->_defaultPos);
+	for (int i = 0; i < cardata->wheelCount; i++) {
+		if (!cardata->wheels[i]) continue;
+		wheelVel = b3Body_GetLocalPointVelocity(bid, ((WheelData*)cardata->wheels[i]->data)->defaultPos);
 		wheelVel = b3Body_GetLocalVector(bid, wheelVel);
-		vecToWheel(&wheelVel, ((WheelData*)cardata->_wheels[i]->data)->_angle);
-		b3Pos rayorigin = b3Body_GetWorldPoint(bid, ((WheelData*)cardata->_wheels[i]->data)->_defaultPos);
-		b3Vec3 raytranslation = (b3Vec3){0.0f, -((WheelData*)cardata->_wheels[i]->data)->_springLen, 0.0f };
+		vecToWheel(&wheelVel, ((WheelData*)cardata->wheels[i]->data)->angle);
+		b3Pos rayorigin = b3Body_GetWorldPoint(bid, ((WheelData*)cardata->wheels[i]->data)->defaultPos);
+		b3Vec3 raytranslation = (b3Vec3){0.0f, -((WheelData*)cardata->wheels[i]->data)->springLen, 0.0f };
 
 		raytranslation = b3Body_GetWorldVector(bid, raytranslation);
 		
 
 		b3QueryFilter skipTeamFilter = { 1, ~2u };
-		b3RayResult result = b3World_CastRayClosest(playground->_worldId, rayorigin, raytranslation, skipTeamFilter);
+		b3RayResult result = b3World_CastRayClosest(playground->worldId, rayorigin, raytranslation, skipTeamFilter);
 
 		b3Vec3 force = (b3Vec3){ 0 };
 		b3Vec3 springVel = (b3Vec3){ 0 };
@@ -170,93 +170,93 @@ void car_update(Object* obj, Playground* playground)
 
 
 
-		if (cardata->_accelerating) {
+		if (cardata->accelerating) {
 
-			((WheelData*)cardata->_wheels[i]->data)->_speed += cardata->_torqueCurve.evaluate(&cardata->_torqueCurve, ((WheelData*)cardata->_wheels[i]->data)->_speed / cardata->_maxSpeed) * cardata->_torque * playground->_targetDeltaTime;
+			((WheelData*)cardata->wheels[i]->data)->speed += cardata->torqueCurve.evaluate(&cardata->torqueCurve, ((WheelData*)cardata->wheels[i]->data)->speed / cardata->maxSpeed) * cardata->torque * playground->targetDeltaTime;
 
 			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
 			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
 			//torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 		}
 		else {
-			float basicFriction = 10.0f * playground->_targetDeltaTime;
-			if (((WheelData*)cardata->_wheels[i]->data)->_speed > 0.0f) 
-				((WheelData*)cardata->_wheels[i]->data)->_speed -= Clamp(basicFriction, 0.0f, ((WheelData*)cardata->_wheels[i]->data)->_speed);
+			float basicFriction = 10.0f * playground->targetDeltaTime;
+			if (((WheelData*)cardata->wheels[i]->data)->speed > 0.0f) 
+				((WheelData*)cardata->wheels[i]->data)->speed -= Clamp(basicFriction, 0.0f, ((WheelData*)cardata->wheels[i]->data)->speed);
 			else 
-				((WheelData*)cardata->_wheels[i]->data)->_speed += Clamp(basicFriction, 0.0f, -((WheelData*)cardata->_wheels[i]->data)->_speed);
+				((WheelData*)cardata->wheels[i]->data)->speed += Clamp(basicFriction, 0.0f, -((WheelData*)cardata->wheels[i]->data)->speed);
 		}
 		
 
-		float maxVelFric = 30.0f * playground->_targetDeltaTime;
+		float maxVelFric = 30.0f * playground->targetDeltaTime;
 		
 		
 
-		if (cardata->_braking && i >= 2) {
-			((WheelData*)cardata->_wheels[i]->data)->_speed = 0.0f;
+		if (cardata->braking && i >= 2) {
+			((WheelData*)cardata->wheels[i]->data)->speed = 0.0f;
 			//if (_wheels[i]->_speed > 0.0f) _wheels[i]->_speed -= Clamp(maxVelFric, 0.0f, _wheels[i]->_speed);
 			//else _wheels[i]->_speed += Clamp(maxVelFric, 0.0f, -_wheels[i]->_speed);
 		}
 
 
 		if (result.hit == false) {
-			playground->_lines[i * 2 + 0].x = rayorigin.x;
-			playground->_lines[i * 2 + 0].y = rayorigin.y;
-			playground->_lines[i * 2 + 0].z = rayorigin.z;
+			playground->lines[i * 2 + 0].x = rayorigin.x;
+			playground->lines[i * 2 + 0].y = rayorigin.y;
+			playground->lines[i * 2 + 0].z = rayorigin.z;
 
-			playground->_lines[i * 2 + 1].x = rayorigin.x + raytranslation.x;
-			playground->_lines[i * 2 + 1].y = rayorigin.y + raytranslation.y;
-			playground->_lines[i * 2 + 1].z = rayorigin.z + raytranslation.z;
+			playground->lines[i * 2 + 1].x = rayorigin.x + raytranslation.x;
+			playground->lines[i * 2 + 1].y = rayorigin.y + raytranslation.y;
+			playground->lines[i * 2 + 1].z = rayorigin.z + raytranslation.z;
 
-			((WheelData*)cardata->_wheels[i]->data)->_prevHeight = ((WheelData*)cardata->_wheels[i]->data)->_springLen;
+			((WheelData*)cardata->wheels[i]->data)->prevHeight = ((WheelData*)cardata->wheels[i]->data)->springLen;
 
 		}
 		else {
-			playground->_lines[i * 2 + 0].x = rayorigin.x;
-			playground->_lines[i * 2 + 0].y = rayorigin.y;
-			playground->_lines[i * 2 + 0].z = rayorigin.z;
+			playground->lines[i * 2 + 0].x = rayorigin.x;
+			playground->lines[i * 2 + 0].y = rayorigin.y;
+			playground->lines[i * 2 + 0].z = rayorigin.z;
 
-			playground->_lines[i * 2 + 1].x = result.point.x;
-			playground->_lines[i * 2 + 1].y = result.point.y;
-			playground->_lines[i * 2 + 1].z = result.point.z;
+			playground->lines[i * 2 + 1].x = result.point.x;
+			playground->lines[i * 2 + 1].y = result.point.y;
+			playground->lines[i * 2 + 1].z = result.point.z;
 
 			springVel = (b3Vec3){ 0.0f, wheelVel.y, 0.0f };
 			springVel = b3Body_GetWorldVector(bid, springVel);
-			float spring_factor_pid = ((result.fraction - 1.0f) * cardata->_springStiffness);
+			float spring_factor_pid = ((result.fraction - 1.0f) * cardata->springStiffness);
 			springforce = b3MulSub(b3Mul(raytranslation, (b3Vec3){ spring_factor_pid , spring_factor_pid,
-											spring_factor_pid}), cardata->_springDamping, springVel);
+											spring_factor_pid}), cardata->springDamping, springVel);
 			float scalarSpringForce = b3Dot(springforce, result.normal);
 			springforce = b3Mul(result.normal, (b3Vec3) { scalarSpringForce, scalarSpringForce
 			, scalarSpringForce
 			}); // scalarSpringForce * result.normal;
 
-			float diff = ((WheelData*)cardata->_wheels[i]->data)->_speed - wheelVel.z;
+			float diff = ((WheelData*)cardata->wheels[i]->data)->speed - wheelVel.z;
 
 			float pifagor_2 = wheelVel.x * wheelVel.x + diff * diff;
 			float pifagor = sqrtf(pifagor_2);
 			if (pifagor_2 >= maxVelFric * maxVelFric) {
-				((WheelData*)cardata->_wheels[i]->data)->_sliding = true;
+				((WheelData*)cardata->wheels[i]->data)->sliding = true;
 				float factor = maxVelFric / pifagor;
 				wheelVel.x *= factor;
 				diff *= factor;
 			}
 			else {
-				((WheelData*)cardata->_wheels[i]->data)->_sliding = false;
+				((WheelData*)cardata->wheels[i]->data)->sliding = false;
 			}
 
 			//if (_accelerating);
-			((WheelData*)cardata->_wheels[i]->data)->_speed -= diff;
+			((WheelData*)cardata->wheels[i]->data)->speed -= diff;
 
-			frictionforce = (b3Vec3){ -wheelVel.x * (float)playground->_targetFPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
-			vecToWheel(&frictionforce, -((WheelData*)cardata->_wheels[i]->data)->_angle);
+			frictionforce = (b3Vec3){ -wheelVel.x * (float)playground->targetFPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
+			vecToWheel(&frictionforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
 			
 			float friction_force_factor = b3Dot(frictionforce, result.normal);
 
 			frictionforce = b3MulSub(frictionforce, friction_force_factor, result.normal);
 
-			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)playground->_targetFPS * bodyMass * 0.25f };
+			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)playground->targetFPS * bodyMass * 0.25f };
 				//diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
-			vecToWheel(&torqueforce, -((WheelData*)cardata->_wheels[i]->data)->_angle);
+			vecToWheel(&torqueforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 			
 			float torque_force_factor = b3Dot(torqueforce, result.normal);
@@ -270,33 +270,33 @@ void car_update(Object* obj, Playground* playground)
 			b3Body_ApplyForce(bid, force, result.point, true);
 
 
-			((WheelData*)cardata->_wheels[i]->data)->_prevHeight = ((WheelData*)cardata->_wheels[i]->data)->_springLen * result.fraction;
+			((WheelData*)cardata->wheels[i]->data)->prevHeight = ((WheelData*)cardata->wheels[i]->data)->springLen * result.fraction;
 		}
 		float factor1 = 10.0f;
 
 
-		playground->_lines[8 + i * 2 + 0].x = rayorigin.x;
-		playground->_lines[8 + i * 2 + 0].y = rayorigin.y;
-		playground->_lines[8 + i * 2 + 0].z = rayorigin.z;
+		playground->lines[8 + i * 2 + 0].x = rayorigin.x;
+		playground->lines[8 + i * 2 + 0].y = rayorigin.y;
+		playground->lines[8 + i * 2 + 0].z = rayorigin.z;
 		
-		playground->_lines[8 + i * 2 + 1].x = rayorigin.x + springforce.x * factor1 / cardata->_springStiffness;
-		playground->_lines[8 + i * 2 + 1].y = rayorigin.y + springforce.y * factor1 / cardata->_springStiffness;
-		playground->_lines[8 + i * 2 + 1].z = rayorigin.z + springforce.z * factor1 / cardata->_springStiffness;
+		playground->lines[8 + i * 2 + 1].x = rayorigin.x + springforce.x * factor1 / cardata->springStiffness;
+		playground->lines[8 + i * 2 + 1].y = rayorigin.y + springforce.y * factor1 / cardata->springStiffness;
+		playground->lines[8 + i * 2 + 1].z = rayorigin.z + springforce.z * factor1 / cardata->springStiffness;
 
 		float factor2 = 0.1f;
 		
-		playground->_lines[16 + i * 2 + 0].x = rayorigin.x;
-		playground->_lines[16 + i * 2 + 0].y = rayorigin.y;
-		playground->_lines[16 + i * 2 + 0].z = rayorigin.z;
+		playground->lines[16 + i * 2 + 0].x = rayorigin.x;
+		playground->lines[16 + i * 2 + 0].y = rayorigin.y;
+		playground->lines[16 + i * 2 + 0].z = rayorigin.z;
 
-		playground->_lines[16 + i * 2 + 1].x = rayorigin.x + frictionforce.x * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;
-		playground->_lines[16 + i * 2 + 1].y = rayorigin.y + frictionforce.y * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;// -weight * 0.25;
-		playground->_lines[16 + i * 2 + 1].z = rayorigin.z + frictionforce.z * factor2 / ((WheelData*)cardata->_wheels[i]->data)->_weight;
+		playground->lines[16 + i * 2 + 1].x = rayorigin.x + frictionforce.x * factor2 / ((WheelData*)cardata->wheels[i]->data)->weight;
+		playground->lines[16 + i * 2 + 1].y = rayorigin.y + frictionforce.y * factor2 / ((WheelData*)cardata->wheels[i]->data)->weight;// -weight * 0.25;
+		playground->lines[16 + i * 2 + 1].z = rayorigin.z + frictionforce.z * factor2 / ((WheelData*)cardata->wheels[i]->data)->weight;
 		
 	}
 	
-	cardata->_accelerating = false;
-	cardata->_braking = false;
+	cardata->accelerating = false;
+	cardata->braking = false;
 }
 
 static bool MoverFilterCallback( b3ShapeId shapeId, void* context )
@@ -408,11 +408,11 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	
 	data->velocity.y -= data->gravity * timeStep;
 
-	b3WorldId worldId = data->playground->_worldId;
+	b3WorldId worldId = data->playground->worldId;
 	
 	float pogoRestLength = 1.0f * data->capsule.radius;
 	float rayLength = pogoRestLength + data->capsule.radius;
-	data->trans.p = (b3Pos){self->_pos.x, self->_pos.y, self->_pos.z};
+	data->trans.p = (b3Pos){self->pos.x, self->pos.y, self->pos.z};
 	b3Pos rayOrigin = b3TransformWorldPoint(data->trans, data->capsule.center1);
 	b3Vec3 rayTranslation = (b3Vec3){0.0f, -rayLength, 0.0f};
 	b3QueryFilter skipTeamFilter = { 1, ~2u };
@@ -546,7 +546,7 @@ void character_update(Object* obj, Playground* playground)
 {
 	Object* self = obj;
 	CharacterData* data = (CharacterData*)self->data;
-	self->_pos = data->trans.p;
+	self->pos = data->trans.p;
 	self->updateMatrix(self);
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
@@ -557,34 +557,34 @@ void character_update(Object* obj, Playground* playground)
 	forward.y = 0.0f;
 	forward = b3Normalize(forward);
 
-	if (playground->eh._keys & EH_K_W) {
+	if (playground->eh.keys & EH_K_W) {
 		throttle.x += 1.0f;
 	}
-	if (playground->eh._keys & EH_K_S) {
+	if (playground->eh.keys & EH_K_S) {
 		throttle.x -= 1.0f;
 	}
-	if (playground->eh._keys & EH_K_A) {
+	if (playground->eh.keys & EH_K_A) {
 		throttle.y += 1.0f;
 	}
-	if (playground->eh._keys & EH_K_D) {
+	if (playground->eh.keys & EH_K_D) {
 		throttle.y -= 1.0f;
 	}
 
-	if ((playground->eh._keys & EH_K_SPACE) && data->onGround == true) {
+	if ((playground->eh.keys & EH_K_SPACE) && data->onGround == true) {
 		data->velocity.y = data->jumpSpeed;
 		data->onGround = false;
 	}
-	if (data->onGround && (playground->eh._keys & EH_K_SHIFT)) {
+	if (data->onGround && (playground->eh.keys & EH_K_SHIFT)) {
 		data->sprint = true;
 	} else {
 		data->sprint = false;
 	}
 
-	float hertz = playground->_targetFPS;
+	float hertz = playground->targetFPS;
 	float timeStep = hertz > 0.0f ? 1.0f / hertz : 0.0f;
 
 	character_solveMove(self, timeStep, forward, right, throttle, true);
-	b3Pos position = self->_pos;
+	b3Pos position = self->pos;
 }
 
 void char_draw(struct Object* self, Playground* playground)
@@ -593,9 +593,9 @@ void char_draw(struct Object* self, Playground* playground)
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	if (camdata->type == CAM_FIRST_PERSON) return;
-	playground->_models[self->_modelId].transform = self->_transform;
-	playground->_models[self->_modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->_textures[self->_texId];
-	DrawModel(playground->_models[self->_modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	playground->models[self->modelId].transform = self->transform;
+	playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
+	DrawModel(playground->models[self->modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
 
@@ -607,7 +607,7 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 	
 	data->capsule = (b3Capsule){ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
 	data->trans = b3Transform_identity;
-	data->trans.p = (b3Vec3){self->_pos.x, self->_pos.y, self->_pos.z};
+	data->trans.p = (b3Vec3){self->pos.x, self->pos.y, self->pos.z};
 	data->velocity = b3Vec3_zero;
 	data->camera = camera;
 	data->playground = playground;

@@ -23,10 +23,10 @@ typedef struct Game
 	Playground* _playground;
 	lua_State* L;
 
-	bool _running;
+	bool running;
 
-	int _targetFPS;
-	float _deltaTime;
+	int targetFPS;
+	float deltaTime;
 
 
 } Game;

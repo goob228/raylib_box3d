@@ -13,7 +13,7 @@ int lua_addTexture(lua_State* L)
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
 	pg->addTexture(pg, lua_tostring(L, 1));
-	int idx = pg->_textureCount - 1;
+	int idx = pg->textureCount - 1;
 	lua_pushnumber(L, idx);
 
 	return 1;
@@ -26,7 +26,7 @@ int lua_addModel(lua_State* L)
 
 	pg->addModel(pg, lua_tostring(L, 1));
 
-	int idx = pg->_modelCount - 1;
+	int idx = pg->modelCount - 1;
 	lua_pushnumber(L, idx);
 
 	return 1;
@@ -61,7 +61,7 @@ int lua_convertToCar(lua_State* L)
 
 	int objid = lua_tonumber(L, 1);
 
-	car_create(&pg->_objects[objid], pg);
+	car_create(&pg->objects[objid], pg);
 
 
 	return 1;
@@ -74,7 +74,7 @@ int lua_convertToWheel(lua_State* L)
 
 	int objid = lua_tonumber(L, 1);
 
-	wheel_create(&pg->_objects[objid]);
+	wheel_create(&pg->objects[objid]);
 
 	return 1;
 }
@@ -86,7 +86,7 @@ int lua_getObjectPointer(lua_State* L)
 
 	int objid = lua_tonumber(L, 1);
 
-	lua_pushlightuserdata(L, &pg->_objects[objid]);
+	lua_pushlightuserdata(L, &pg->objects[objid]);
 
 	return 1;
 }
@@ -97,7 +97,7 @@ int lua_getCameraObjPointer(lua_State* L)
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
 
-	lua_pushlightuserdata(L, (Object*)(&pg->_camera));
+	lua_pushlightuserdata(L, (Object*)(&pg->camera));
 
 	return 1;
 }
@@ -107,11 +107,11 @@ int lua_setDamping(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* car = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* car = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	float damping = (float)lua_tonumber(L, 2);
 	CarData* cardata = (CarData*)car->data;
-	cardata->_springDamping = damping;
+	cardata->springDamping = damping;
 
 	return 1;
 }
@@ -121,7 +121,7 @@ int lua_carSteer(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 	int idx = (int)lua_tonumber(L, 1);
-	Object* car = &pg->_objects[idx];
+	Object* car = &pg->objects[idx];
 
 	float angle = (float)lua_tonumber(L, 2);
 	CarData* cardata = (CarData*)car->data;
@@ -136,9 +136,9 @@ int lua_carAccelerate(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 	
-	Object* car = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* car = &pg->objects[(int)lua_tonumber(L, 1)];
 	CarData* cardata = (CarData*)car->data;
-	cardata->_accelerating = true;
+	cardata->accelerating = true;
 
 	return 1;
 }
@@ -149,9 +149,9 @@ int lua_carBrake(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* car = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* car = &pg->objects[(int)lua_tonumber(L, 1)];
 	CarData* cardata = (CarData*)car->data;
-	cardata->_braking = true;
+	cardata->braking = true;
 
 	return 1;
 }
@@ -161,13 +161,13 @@ int lua_addForceToObj(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* obj = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* obj = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	float fx = (float)lua_tonumber(L, 2);
 	float fy = (float)lua_tonumber(L, 3);
 	float fz = (float)lua_tonumber(L, 4);
 
-	b3Body_ApplyForceToCenter(pg->_bodies[obj->_physId], (b3Vec3){fx,fy,fz}, true);
+	b3Body_ApplyForceToCenter(pg->bodies[obj->physId], (b3Vec3){fx,fy,fz}, true);
 
 	return 1;
 }
@@ -179,7 +179,7 @@ int lua_isKeyPressed(lua_State* L)
 
 	int key = (int)lua_tointeger(L, 1);
 
-	if (eh->_pressedKeys & key) {
+	if (eh->pressedKeys & key) {
 		lua_pushboolean(L, 1);
 	}
 	else {
@@ -197,7 +197,7 @@ int lua_isKeyDown(lua_State* L)
 
 	int key = (int)lua_tointeger(L, 1);
 
-	if (eh->_keys & key) {
+	if (eh->keys & key) {
 		lua_pushboolean(L, 1);
 	}
 	else {
@@ -213,9 +213,9 @@ int lua_setParent(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* obj = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* obj = &pg->objects[(int)lua_tonumber(L, 1)];
 
-	Object* par = &pg->_objects[(int)lua_tonumber(L, 2)];
+	Object* par = &pg->objects[(int)lua_tonumber(L, 2)];
 
 	obj->setParent(obj, par);
 
@@ -227,9 +227,9 @@ int lua_setCameraParent(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* par = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* par = &pg->objects[(int)lua_tonumber(L, 1)];
 
-	pg->_camera.setParent((Object*)&pg->_camera, par);
+	pg->camera.setParent((Object*)&pg->camera, par);
 
 	return 1;
 }
@@ -239,7 +239,7 @@ int lua_switchCameraType(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	CameraData* data = (CameraData*)pg->_camera.data;
+	CameraData* data = (CameraData*)pg->camera.data;
 
 	data->type = (Cam_type)(((int)data->type + 1)%(int)CAM_TYPE_COUNT);
 
@@ -251,18 +251,18 @@ int lua_setCarToWheel(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* wheel = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* wheel = &pg->objects[(int)lua_tonumber(L, 1)];
 
-	Object* car = &pg->_objects[(int)lua_tonumber(L, 2)];
+	Object* car = &pg->objects[(int)lua_tonumber(L, 2)];
 
 	WheelData* wheeldata = (WheelData*)wheel->data;
-	wheeldata->_car = car;
-	wheel->_parent = (Object*)car;
+	wheeldata->car = car;
+	wheel->parent = (Object*)car;
 	CarData* cardata = (CarData*)car->data;
-	wheeldata->_springLen = cardata->_springLen;
+	wheeldata->springLen = cardata->springLen;
 
-	cardata->_wheels[cardata->_wheelCount] = wheel;
-	cardata->_wheelCount++;
+	cardata->wheels[cardata->wheelCount] = wheel;
+	cardata->wheelCount++;
 
 	return 1;
 }
@@ -272,7 +272,7 @@ int lua_setIdToWheel(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* wheel = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* wheel = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	int id = (int)lua_tonumber(L, 2);
 
@@ -285,14 +285,14 @@ int lua_setMassCenter(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* obj = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* obj = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	float mx = (float)lua_tonumber(L, 2);
 	float my = (float)lua_tonumber(L, 3);
 	float mz = (float)lua_tonumber(L, 4);
 
 
-	b3BodyId bid = pg->_bodies[obj->_physId];
+	b3BodyId bid = pg->bodies[obj->physId];
 
 	b3Matrix3 in = b3Body_GetLocalRotationalInertia(bid);
 
@@ -311,19 +311,19 @@ int lua_rotateObject(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* obj = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* obj = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	float rx = (float)lua_tonumber(L, 2);
 	float ry = (float)lua_tonumber(L, 3);
 	float rz = (float)lua_tonumber(L, 4);
 
-	b3Vec3 pos = b3Body_GetPosition(pg->_bodies[obj->_physId]);
+	b3Vec3 pos = b3Body_GetPosition(pg->bodies[obj->physId]);
 	Quaternion r = QuaternionFromEuler(rx * DEG2RAD, ry * DEG2RAD, rz * DEG2RAD);
 	b3Quat rot = { {r.x, r.y, r.z},r.w };
 
 
-	b3Body_SetTransform(pg->_bodies[obj->_physId], pos, rot);
-	obj->_rot = r;
+	b3Body_SetTransform(pg->bodies[obj->physId], pos, rot);
+	obj->rot = r;
 	obj->updateMatrix(obj);
 
 	return 1;
@@ -334,16 +334,16 @@ int lua_objectSetPos(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	Object* obj = &pg->_objects[(int)lua_tonumber(L, 1)];
+	Object* obj = &pg->objects[(int)lua_tonumber(L, 1)];
 
 	float x = (float)lua_tonumber(L, 2);
 	float y = (float)lua_tonumber(L, 3);
 	float z = (float)lua_tonumber(L, 4);
 
-	obj->_pos = (Vector3){x, y, z};
-	if (obj->_physId != 0) {
-		b3Quat rot = b3Body_GetRotation(pg->_bodies[obj->_physId]);
-		b3Body_SetTransform(pg->_bodies[obj->_physId], (b3Vec3){x,y,z}, rot);
+	obj->pos = (Vector3){x, y, z};
+	if (obj->physId != 0) {
+		b3Quat rot = b3Body_GetRotation(pg->bodies[obj->physId]);
+		b3Body_SetTransform(pg->bodies[obj->physId], (b3Vec3){x,y,z}, rot);
 	}
 
 	obj->updateMatrix(obj);
@@ -357,22 +357,22 @@ int lua_createSpring(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	for (int i = 1; i < pg->_springCount; i++) {
-		if (pg->_springs[i].used == false) {
-			pg->_springs[i].used == true;
+	for (int i = 1; i < pg->springCount; i++) {
+		if (pg->springs[i].used == false) {
+			pg->springs[i].used == true;
 			lua_pushinteger(L, i);
 			return 1;
 		}
 	}
 
-	pg->_springs[pg->_springCount] = spring_create();
+	pg->springs[pg->springCount] = spring_create();
 
 
 
 
 
-	lua_pushinteger(L, pg->_springCount);
-	pg->_springCount++;
+	lua_pushinteger(L, pg->springCount);
+	pg->springCount++;
 
 	return 1;
 }
@@ -385,7 +385,7 @@ int lua_setSpringPos(lua_State* L)
 	int id = (int)lua_tointeger(L, 1);
 	float pos = (float)lua_tonumber(L, 2);
 
-	pg->_springs[id].setPos(&pg->_springs[id], pos);
+	pg->springs[id].setPos(&pg->springs[id], pos);
 
 
 	return 1;
@@ -399,7 +399,7 @@ int lua_setSpringTargetPos(lua_State* L)
 	int id = (int)lua_tointeger(L, 1);
 	float pos = (float)lua_tonumber(L, 2);
 
-	pg->_springs[id].setTargetPos(&pg->_springs[id], pos);
+	pg->springs[id].setTargetPos(&pg->springs[id], pos);
 
 	return 1;
 }
@@ -413,8 +413,8 @@ int lua_setSpringValues(lua_State* L)
 	float hertz = (float)lua_tonumber(L, 2);
 	float damp = (float)lua_tonumber(L, 3);
 
-	pg->_springs[id].setHertz(&pg->_springs[id], hertz);
-	pg->_springs[id].setDamping(&pg->_springs[id], damp);
+	pg->springs[id].setHertz(&pg->springs[id], hertz);
+	pg->springs[id].setDamping(&pg->springs[id], damp);
 
 	return 1;
 }
@@ -427,7 +427,7 @@ int lua_updateSpring(lua_State* L)
 
 	int id = (int)lua_tointeger(L, 1);
 
-	pg->_springs[id].update(&pg->_springs[id], pg->_targetDeltaTime);
+	pg->springs[id].update(&pg->springs[id], pg->targetDeltaTime);
 
 	return 1;
 }
@@ -440,7 +440,7 @@ int lua_getSpringPos(lua_State* L)
 
 	int id = (int)lua_tointeger(L, 1);
 
-	lua_pushnumber(L, pg->_springs[id].getPos(&pg->_springs[id]));
+	lua_pushnumber(L, pg->springs[id].getPos(&pg->springs[id]));
 
 
 	return 1;

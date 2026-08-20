@@ -21,10 +21,10 @@
 
 
 typedef struct EventHandler {
-	float _mx;
-	float _my;
-	uint16_t _keys;
-	uint16_t _pressedKeys;
+	float mx;
+	float my;
+	uint16_t keys;
+	uint16_t pressedKeys;
 } EventHandler;
 
 

@@ -28,32 +28,32 @@ int pg_addModel(struct Playground* self, char const* fileName);
 
 int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type)
 {
-	int objid = self->_objCount;
-	self->_objects[objid]._transform = MatrixIdentity();
-	self->_objects[objid]._pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
-	self->_objects[objid]._rot = QuaternionIdentity(); 
-	self->_objects[objid]._scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
-	self->_objects[objid]._alive = true; 
-	self->_objects[objid]._type = OBJ_NONE; 
-	self->_objects[objid]._parent = (Object*)0; 
-	self->_objects[objid]._physId = 0; 
-	self->_objects[objid]._texId = 0; 
-	self->_objects[objid]._modelId = 0; 
-	self->_objects[objid]._onRemove = false;
+	int objid = self->objCount;
+	self->objects[objid].transform = MatrixIdentity();
+	self->objects[objid].pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
+	self->objects[objid].rot = QuaternionIdentity(); 
+	self->objects[objid].scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
+	self->objects[objid].alive = true; 
+	self->objects[objid].type = OBJ_NONE; 
+	self->objects[objid].parent = (Object*)0; 
+	self->objects[objid].physId = 0; 
+	self->objects[objid].texId = 0; 
+	self->objects[objid].modelId = 0; 
+	self->objects[objid].onRemove = false;
 
-	self->_objects[objid].update = (&ob_update);
-	self->_objects[objid].updateMatrix = (&ob_updateMatrix);
-	self->_objects[objid].draw = (&ob_draw);
-	self->_objects[objid].setParent = (&ob_setParent);
-	self->_objects[objid]._scale = scale;
-	self->_objects[objid]._pos = pos;
-	self->_objects[objid]._texId = texId;
-	self->_objects[objid]._modelId = modelId;
-	self->_objects[objid]._type = type;
-	self->_objects[objid].updateMatrix(&self->_objects[objid]);
+	self->objects[objid].update = (&ob_update);
+	self->objects[objid].updateMatrix = (&ob_updateMatrix);
+	self->objects[objid].draw = (&ob_draw);
+	self->objects[objid].setParent = (&ob_setParent);
+	self->objects[objid].scale = scale;
+	self->objects[objid].pos = pos;
+	self->objects[objid].texId = texId;
+	self->objects[objid].modelId = modelId;
+	self->objects[objid].type = type;
+	self->objects[objid].updateMatrix(&self->objects[objid]);
 
 	if (type == OBJ_PROP || type == OBJ_OBSTACLE) {
-		BoundingBox bb = GetModelBoundingBox(self->_models[modelId]);
+		BoundingBox bb = GetModelBoundingBox(self->models[modelId]);
 
 		b3Transform transform = { 0 };
 		transform.p.x = (bb.max.x + bb.min.x) * scale.x / 2.0f;
@@ -69,7 +69,7 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId,
 		if (type == OBJ_PROP)
 			bodyDef.type = b3_dynamicBody;
 		bodyDef.position = (b3Vec3){ pos.x, pos.y, pos.z };
-		b3BodyId bodyId = b3CreateBody(self->_worldId, &bodyDef);
+		b3BodyId bodyId = b3CreateBody(self->worldId, &bodyDef);
 
 		b3ShapeDef shapeDef = b3DefaultShapeDef();
 		shapeDef.density = 30.0f;
@@ -86,14 +86,14 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId,
 	
 
 
-		self->_bodies[self->_bodyCount] = bodyId;
-		self->_objects[objid]._physId = self->_bodyCount;
-		self->_bodyCount++;
+		self->bodies[self->bodyCount] = bodyId;
+		self->objects[objid].physId = self->bodyCount;
+		self->bodyCount++;
 	}
 
-	self->_objCount += 1;
+	self->objCount += 1;
 
-	return self->_objCount-1;
+	return self->objCount-1;
 	
 }
 
@@ -101,17 +101,17 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, int texId,
 
 int pg_addTexture(struct Playground* self, char const * fileName)
 {
-	self->_textures[self->_textureCount] = LoadTexture(fileName);
-	self->_textureCount++;
+	self->textures[self->textureCount] = LoadTexture(fileName);
+	self->textureCount++;
 
 	return 0;
 }
 
 int pg_addModel(struct Playground* self, char const* fileName)
 {
-	self->_models[self->_modelCount] = LoadModel(fileName);
-	self->_models[self->_modelCount].materials[0].shader = self->_basicShader;
-	self->_modelCount++;
+	self->models[self->modelCount] = LoadModel(fileName);
+	self->models[self->modelCount].materials[0].shader = self->basicShader;
+	self->modelCount++;
 
 	return 0;
 }
@@ -129,65 +129,65 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->cleanUp = (&pg_cleanUp);
 
 	for (int i = 0; i < MAX_SPRINGS; i++) {
-		self->_objects[i]._onRemove = true;
+		self->objects[i].onRemove = true;
 	}
 
-	self->_bodyCount = 1;
-	self->_objCount = 1;
-	self->_textureCount = 1;
-	self->_modelCount = 1;
-	self->_springCount = 1;
+	self->bodyCount = 1;
+	self->objCount = 1;
+	self->textureCount = 1;
+	self->modelCount = 1;
+	self->springCount = 1;
 
-	self->_elapsed = 0.0f;
-
-
-	self->_targetFPS = targetFPS;
-	self->_targetDeltaTime = 1.0f / (float)self->_targetFPS;
+	self->elapsed = 0.0f;
 
 
+	self->targetFPS = targetFPS;
+	self->targetDeltaTime = 1.0f / (float)self->targetFPS;
 
-	gc_init(&self->_camera);
+
+
+	gc_init(&self->camera);
 
 
 	b3WorldDef worldDef = b3DefaultWorldDef();
 	worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
 
-	self->_worldId = b3CreateWorld(&worldDef);
+	self->worldId = b3CreateWorld(&worldDef);
 
 
-	self->_basicShader = LoadShader(0, "");
+	self->basicShader = LoadShader(0, "");
 
-	int ti = self->_objCount;
-	self->_objects[ti]._transform = MatrixIdentity();
-	self->_objects[ti]._rot = QuaternionIdentity();
-	self->_objects[ti]._pos = (Vector3){0.0f, 10.0f, 0.0f};
-	self->_objects[ti]._scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
-	self->_objects[ti]._alive = true; 
-	self->_objects[ti]._type = OBJ_NONE; 
-	self->_objects[ti]._parent = (Object*)0; 
-	self->_objects[ti]._physId = 0; 
-	self->_objects[ti]._texId = 0; 
-	self->_objects[ti]._modelId = 0; 
-	self->_objects[ti]._onRemove = false;
+	int ti = self->objCount;
+	self->objects[ti].transform = MatrixIdentity();
+	self->objects[ti].rot = QuaternionIdentity();
+	self->objects[ti].pos = (Vector3){0.0f, 10.0f, 0.0f};
+	self->objects[ti].scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
+	self->objects[ti].alive = true; 
+	self->objects[ti].type = OBJ_NONE; 
+	self->objects[ti].parent = (Object*)0; 
+	self->objects[ti].physId = 0; 
+	self->objects[ti].texId = 0; 
+	self->objects[ti].modelId = 0; 
+	self->objects[ti].onRemove = false;
 
-	self->_objects[ti].update = (&ob_update);
-	self->_objects[ti].updateMatrix = (&ob_updateMatrix);
-	self->_objects[ti].draw = (&ob_draw);
-	self->_objects[ti].setParent = (&ob_setParent);
-	self->_objects[ti]._texId = 2;
+	self->objects[ti].update = (&ob_update);
+	self->objects[ti].updateMatrix = (&ob_updateMatrix);
+	self->objects[ti].draw = (&ob_draw);
+	self->objects[ti].setParent = (&ob_setParent);
+	self->objects[ti].texId = 2;
 	
-	self->_models[self->_modelCount] = LoadModelFromMesh(GenMeshCylinder(0.5f, 2.0f, 8));
+	self->models[self->modelCount] = LoadModelFromMesh(GenMeshCylinder(0.5f, 2.0f, 8));
 	
 
-	self->_objects[ti]._modelId = self->_modelCount;
-	self->_objects[ti]._type = OBJ_OBSTACLE;
-	self->_objects[ti].updateMatrix(&self->_objects[ti]);
+	self->objects[ti].modelId = self->modelCount;
+	self->objects[ti].type = OBJ_OBSTACLE;
+	self->objects[ti].updateMatrix(&self->objects[ti]);
 
-	character_create(&self->_objects[ti], &self->_camera, self);
+	character_create(&self->objects[ti], &self->camera, self);
 
-	self->_camera.setParent(&self->_camera, &self->_objects[ti]);
-	self->_modelCount++;
-	self->_objCount++;
+	self->camera.setParent(&self->camera, &self->objects[ti]);
+	self->modelCount++;
+	self->objCount++;
 
 
 }
@@ -196,16 +196,16 @@ void pg_update(struct Playground* self, EventHandler* eventhandler)
 {
 
 	self->eh = *eventhandler;
-	self->_camera.update((Object*)&self->_camera, self);
+	self->camera.update((Object*)&self->camera, self);
 
-	b3World_Step(self->_worldId, self->_targetDeltaTime, 1);
+	b3World_Step(self->worldId, self->targetDeltaTime, 1);
 
 	
 
 
-	for (int i = 1; i <= self->_objCount; i++) {
-		if (self->_objects[i]._onRemove != true) {
-			self->_objects[i].update(&self->_objects[i],self);
+	for (int i = 1; i <= self->objCount; i++) {
+		if (self->objects[i].onRemove != true) {
+			self->objects[i].update(&self->objects[i],self);
 			
 		}
 	}
@@ -213,13 +213,13 @@ void pg_update(struct Playground* self, EventHandler* eventhandler)
 
 void pg_render(struct Playground* self, WindowHandler* windowhandler)
 {
-	((CameraData*)self->_camera.data)->startFrame(&self->_camera);
-	BeginShaderMode(self->_basicShader);
+	((CameraData*)self->camera.data)->startFrame(&self->camera);
+	BeginShaderMode(self->basicShader);
 
 
-	for (int i = 1; i <= self->_objCount; i++) {
-		if (self->_objects[i]._onRemove != true) {
-			self->_objects[i].draw(&self->_objects[i], self);
+	for (int i = 1; i <= self->objCount; i++) {
+		if (self->objects[i].onRemove != true) {
+			self->objects[i].draw(&self->objects[i], self);
 		}
 	}
 
@@ -227,22 +227,22 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 	Vector3 epos = (Vector3){ 0 };
 
 	for (int i = 0; i < MAX_LINES/2-1; i++) {
-		spos.x = self->_lines[i * 2 + 0].x;
-		spos.y = self->_lines[i * 2 + 0].y;
-		spos.z = self->_lines[i * 2 + 0].z;
+		spos.x = self->lines[i * 2 + 0].x;
+		spos.y = self->lines[i * 2 + 0].y;
+		spos.z = self->lines[i * 2 + 0].z;
 
-		epos.x = self->_lines[i * 2 + 1].x;
-		epos.y = self->_lines[i * 2 + 1].y;
-		epos.z = self->_lines[i * 2 + 1].z;
+		epos.x = self->lines[i * 2 + 1].x;
+		epos.y = self->lines[i * 2 + 1].y;
+		epos.z = self->lines[i * 2 + 1].z;
 		
 		DrawLine3D(spos, epos, MAROON);
 
 	}
-	self->_elapsed += self->_targetDeltaTime;
+	self->elapsed += self->targetDeltaTime;
 	
 
 	EndShaderMode();
-	((CameraData*)self->_camera.data)->endFrame(&self->_camera);
+	((CameraData*)self->camera.data)->endFrame(&self->camera);
 
 }
 
@@ -251,26 +251,26 @@ void pg_cleanUp(struct Playground* self)
 {
 	
 	for (int i = 0; i < MAX_BODIES; i++) {
-		if (b3Body_IsValid(self->_bodies[i])) {
-			b3DestroyBody(self->_bodies[i]);
+		if (b3Body_IsValid(self->bodies[i])) {
+			b3DestroyBody(self->bodies[i]);
 		}
 	}
 
 	for (int i = 0; i < MAX_TEXTURES; i++) {
-		if (self->_textures[i].id != rlGetTextureIdDefault()) rlUnloadTexture(self->_textures[i].id);
+		if (self->textures[i].id != rlGetTextureIdDefault()) rlUnloadTexture(self->textures[i].id);
 		
 	}
 
 	for (int i = 0; i < MAX_MODELS; i++) {
-		if (self->_models[i].meshCount > 0) {
-			self->_models[i].materials[0].shader = (Shader){ 0 };
-			self->_models[i].materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
-			UnloadMaterial(self->_models[i].materials[0]);
-			self->_models[i].materials[0].maps = NULL;
-			UnloadModel(self->_models[i]);
+		if (self->models[i].meshCount > 0) {
+			self->models[i].materials[0].shader = (Shader){ 0 };
+			self->models[i].materials[0].maps[MATERIAL_MAP_ALBEDO].texture.id = rlGetTextureIdDefault();
+			UnloadMaterial(self->models[i].materials[0]);
+			self->models[i].materials[0].maps = NULL;
+			UnloadModel(self->models[i]);
 		}
 	}
 
-	UnloadShader(self->_basicShader);
+	UnloadShader(self->basicShader);
 
 }

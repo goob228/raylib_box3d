@@ -19,7 +19,7 @@ void game_quit(struct Game* self)
 	lua_close(self->L);
 
 
-	self->_running = false;
+	self->running = false;
 	free(self->_eventhandler);
 	free(self->_windowhandler);
 	free(self->_playground);
@@ -27,16 +27,16 @@ void game_quit(struct Game* self)
 
 int game_init(struct Game* self)
 {
-	self->_running = false;
+	self->running = false;
 	self->_windowhandler = (WindowHandler*)0;
 	self->_eventhandler = (EventHandler*)0;
 	self->_playground = (Playground*)0;
 	self->L = (lua_State*)0;
 
-	self->_running = false;
+	self->running = false;
 
-	self->_targetFPS = SET_FPS;
-	self->_deltaTime = 1.0f / (float)self->_targetFPS;
+	self->targetFPS = SET_FPS;
+	self->deltaTime = 1.0f / (float)self->targetFPS;
 
 	self->_eventhandler = (EventHandler*)malloc(sizeof(EventHandler));
 	if (!self->_eventhandler) return 1;
@@ -44,16 +44,16 @@ int game_init(struct Game* self)
 	self->_windowhandler = (WindowHandler*)malloc(sizeof(WindowHandler));
 
 	if (!self->_windowhandler) return 1;
-	wh_init(self->_windowhandler, self->_targetFPS);
+	wh_init(self->_windowhandler, self->targetFPS);
 
 	self->_playground = (Playground*)malloc(sizeof(Playground));
 
 	if (!self->_playground) return 1;
 
-	pg_init(self->_playground, self->_targetFPS);
+	pg_init(self->_playground, self->targetFPS);
 
 
-	self->_running = true;
+	self->running = true;
 
 	
 
@@ -75,15 +75,15 @@ void game_startLoop(struct Game* self)
 
 	
 
-	while (self->_running) {
+	while (self->running) {
 
 		eh_processInput(self->_eventhandler);
 
-		if (self->_eventhandler->_keys & EH_K_QUIT) {
-			self->_running = false;
+		if (self->_eventhandler->keys & EH_K_QUIT) {
+			self->running = false;
 		}
 
-		if (self->_eventhandler->_keys & EH_K_RESTART) {
+		if (self->_eventhandler->keys & EH_K_RESTART) {
 			game_quit(self);
 			if (game_init(self)) return;
 			continue;
