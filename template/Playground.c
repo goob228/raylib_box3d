@@ -1,5 +1,8 @@
 #include "Playground.h"
 
+#include <malloc.h>
+
+
 #include <raylib.h>
 #include <rlgl.h>
 
@@ -8,6 +11,7 @@
 #include "EventHandler.h"
 #include "Camera.h"
 #include "Object.h"
+#include "MapLoader.h"
 
 #include "Prefabs.h"
 
@@ -116,7 +120,60 @@ int pg_addModel(struct Playground* self, char const* fileName)
 	return 0;
 }
 
+Model LoadModelFromModel_t(Playground* self, model_t* mt)
+{
+	int numofmeshes = 0;
 
+	for (int i = 0; i < mt->meshCount; i++) {
+		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
+			numofmeshes++;
+		}
+	}
+
+	Mesh* meshes = (Mesh*)RL_CALLOC(numofmeshes, sizeof(Mesh));
+
+
+	for (int i = 0, j = 0; i < mt->meshCount; i++) {
+		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
+			meshes[j].triangleCount = 		mt->mesh[i].triangleCount;
+			meshes[j].vertexCount = 		mt->mesh[i].vertexCount;
+			meshes[j].vertices =			mt->mesh[i].vertices;
+			meshes[j].normals =			mt->mesh[i].normals;
+			meshes[j].texcoords =			mt->mesh[i].texcoords;
+			UploadMesh(&meshes[j], false);
+			j++;
+		}
+	}
+
+    Model model = { 0 };
+
+    model.transform = MatrixIdentity();
+
+    model.meshCount = numofmeshes;
+    model.meshes = meshes;
+
+    model.materialCount = numofmeshes;
+    model.materials = (Material *)RL_CALLOC(model.materialCount, sizeof(Material));
+    
+
+    model.meshMaterial = (int *)RL_CALLOC(model.meshCount, sizeof(int));
+    
+
+	for (int i = 0; i < model.meshCount; i++) {
+		model.meshMaterial[i] = i;
+	}
+	int texid = 0;
+	for (int i = 0; i < model.materialCount; i++) {
+		model.materials[i] = LoadMaterialDefault();
+		texid = i%self->textureCount;
+		if (!texid) texid++;
+		model.materials[i].maps[MATERIAL_MAP_ALBEDO].texture = self->textures[texid];
+	}
+
+    return model;
+}
+
+b3Recording* recording = NULL;
 
 void pg_init(struct Playground* self, int targetFPS)
 {
@@ -151,6 +208,7 @@ void pg_init(struct Playground* self, int targetFPS)
 
 	b3WorldDef worldDef = b3DefaultWorldDef();
 	worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
+	worldDef.enableContinuous = true;
 
 	self->worldId = b3CreateWorld(&worldDef);
 
@@ -176,7 +234,7 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->objects[ti].setParent = (&ob_setParent);
 	self->objects[ti].texId = 2;
 	
-	self->models[self->modelCount] = LoadModelFromMesh(GenMeshCylinder(0.5f, 2.0f, 8));
+	self->models[self->modelCount] = LoadModelFromMesh(GenMeshCylinder(0.2f, 0.5f, 8));
 	
 
 	self->objects[ti].modelId = self->modelCount;
@@ -188,7 +246,54 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->camera.setParent(&self->camera, &self->objects[ti]);
 	self->modelCount++;
 	self->objCount++;
+	
+	pg_addTexture(self, "res/Bricks_06-128x128.png");
+	pg_addTexture(self, "res/Wood_17-128x128.png");
+	pg_addTexture(self, "res/car2.png");
+	pg_addTexture(self, "res/car6.png");
+	
 
+	model_t* mapMod = loadMyMap("res/test2.bsp");
+
+	//mapMesh->indices = NULL;
+
+	
+	self->models[self->modelCount] = LoadModelFromModel_t(self, mapMod);
+
+
+	self->modelCount++;
+
+	pg_addObject(self, (Vector3){0.0f, 0.0f, 0.0f}, (Vector3){1.0f,1.0f,1.0f}, 0, self->modelCount-1, OBJ_NONE);
+
+	
+	b3MeshDef def = {0};
+	def.vertices      = (b3Vec3*)mapMod->vertices;
+	def.vertexCount   = mapMod->vertexCount;
+	def.indices       = mapMod->indices;
+	def.triangleCount = mapMod->triangleCount;
+	def.weldVertices  = true;
+	def.identifyEdges = true;            // adjacency info for smooth inter-triangle normals
+	def.weldTolerance = 0.01f;
+	
+	
+	
+	b3MeshData* mesh = b3CreateMesh(&def, NULL, 0);
+
+	b3BodyDef bodyDef = b3DefaultBodyDef();
+	b3BodyId body = b3CreateBody( self->worldId, &bodyDef );
+
+	b3ShapeDef shapeDef = b3DefaultShapeDef();
+	b3SurfaceMaterial materials[3];
+	materials[0] = (b3SurfaceMaterial){ 0.6f, 0.0f, 0 };
+	materials[1] = (b3SurfaceMaterial){ 0.6f, 1.0f, 1 };
+	materials[2] = (b3SurfaceMaterial){ 0.1f, 0.0f, 2 };
+	shapeDef.materials = materials;
+	shapeDef.materialCount = 3;
+
+	b3CreateMeshShape( body, &shapeDef, mesh, b3Vec3_one );
+
+	//recording = b3CreateRecording( 0 );
+	//b3World_StartRecording( self->worldId, recording );  
 
 }
 
@@ -249,6 +354,11 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 
 void pg_cleanUp(struct Playground* self)
 {
+
+	//b3World_StopRecording( self->worldId );
+	
+	//b3SaveRecordingToFile( recording, "session.b3rec" ); 
+	//b3DestroyRecording( recording );
 	
 	for (int i = 0; i < MAX_BODIES; i++) {
 		if (b3Body_IsValid(self->bodies[i])) {

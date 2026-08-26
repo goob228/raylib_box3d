@@ -410,7 +410,7 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 
 	b3WorldId worldId = data->playground->worldId;
 	
-	float pogoRestLength = 1.0f * data->capsule.radius;
+	float pogoRestLength = 1.5f + data->capsule.radius;
 	float rayLength = pogoRestLength + data->capsule.radius;
 	data->trans.p = (b3Pos){self->pos.x, self->pos.y, self->pos.z};
 	b3Pos rayOrigin = b3TransformWorldPoint(data->trans, data->capsule.center1);
@@ -605,7 +605,7 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 	Object* self = object;
 	CharacterData* data = (CharacterData*)self->data;
 	
-	data->capsule = (b3Capsule){ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+	data->capsule = (b3Capsule){ { 0.0f, -0.25f, 0.0f }, { 0.0f, 0.25f, 0.0f }, 0.2f };
 	data->trans = b3Transform_identity;
 	data->trans.p = (b3Vec3){self->pos.x, self->pos.y, self->pos.z};
 	data->velocity = b3Vec3_zero;
