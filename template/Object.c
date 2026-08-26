@@ -37,7 +37,10 @@ void ob_updateMatrix(struct Object* self)
 void ob_draw(struct Object* self, Playground* playground)
 {
 	playground->models[self->modelId].transform = self->transform;
-	playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
+	if (self->texId)
+		playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
+
+	
 	DrawModel(playground->models[self->modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 

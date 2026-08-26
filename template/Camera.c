@@ -104,7 +104,7 @@ b3Vec3 gc_getRight(Object* self)
 
 void gc_init(Object* self)
 {
-	self->pos = (Vector3){ 0.0f, 1.5f, 0.0f };
+	self->pos = (Vector3){ 0.0f, 0.25f, 0.0f };
 	
 	self->update = (&gc_update);
 	self->setParent = (&ob_setParent);
@@ -125,7 +125,7 @@ void gc_init(Object* self)
 	camdata->dist = 1.0f;
 
 
-	camdata->target = (Vector3){ 0.0f, 1.5f, 0.0f };
+	camdata->target = (Vector3){ 0.0f, 0.25f, 0.0f };
 
 	camdata->cam.position = self->pos;
 

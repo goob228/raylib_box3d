@@ -1,4 +1,4 @@
 mkdir build
 cd build
-cmake .. && cmake --build . && games.exe
+cmake -G "MinGW Makefiles" .. && cmake --build . && games.exe
 cd ..
