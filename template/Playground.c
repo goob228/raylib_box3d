@@ -299,8 +299,10 @@ void pg_init(struct Playground* self, int targetFPS)
 
 void pg_update(struct Playground* self, EventHandler* eventhandler)
 {
-
-	self->eh = *eventhandler;
+	if (eventhandler)
+		self->eh = *eventhandler;
+	else 
+		self->eh = (EventHandler){0};
 	self->camera.update((Object*)&self->camera, self);
 
 	b3World_Step(self->worldId, self->targetDeltaTime, 1);

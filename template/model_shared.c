@@ -6,9 +6,11 @@
 #include <malloc.h>
 #include <string.h>
 
+#include <raylib.h>
+
 #define MULTIPLIER (1.0f / 32.0f)
 
-#define PRINT(val, ...) printf(val "\n", ##__VA_ARGS__)
+#define PRINT(val, ...) TraceLog(LOG_WARNING, "model_shared.c: " val, ##__VA_ARGS__)
 
 static model_t loadmodel;
 
@@ -259,7 +261,6 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			temptexture.height = mtheight;
 			loadmodel.data_textures[i] = temptexture;
 
-			PRINT("%s", name);
 		}
 
 		// bump it back to where we started parsing
@@ -440,10 +441,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[i].texcoords = (float*)malloc(loadmodel.mesh[i].vertexCount*2*4);
 			
 		}
-		PRINT("texid: %i tri count: %i", i,  loadmodel.mesh[i].triangleCount );
 	}
 
-	PRINT("done mallocing mesh vertices");
 	
     totalverts = 0;
 	totaltris = 0;

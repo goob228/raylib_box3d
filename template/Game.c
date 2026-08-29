@@ -1,14 +1,17 @@
 #include "Game.h"
 
+#include <stdbool.h>
+#include <malloc.h>
+
 
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Playground.h"
 #include "LuaBind.h"
+#include "Menu.h"
 
-#include <malloc.h>
 
-
+static bool inMenu = 0;
 
 void game_quit(struct Game* self)
 {
@@ -27,6 +30,8 @@ void game_quit(struct Game* self)
 
 int game_init(struct Game* self)
 {
+	
+
 	self->running = false;
 	self->_windowhandler = (WindowHandler*)0;
 	self->_eventhandler = (EventHandler*)0;
@@ -46,6 +51,9 @@ int game_init(struct Game* self)
 	if (!self->_windowhandler) return 1;
 	wh_init(self->_windowhandler, self->targetFPS);
 
+	mn_initMenu();
+	inMenu = false;
+
 	self->_playground = (Playground*)malloc(sizeof(Playground));
 
 	if (!self->_playground) return 1;
@@ -60,6 +68,8 @@ int game_init(struct Game* self)
 	self->L = luaL_newstate();
 
 	lual_init(self->L, self->_playground, self->_eventhandler);
+
+	
 
 	return 0;
 
@@ -83,10 +93,29 @@ void game_startLoop(struct Game* self)
 			self->running = false;
 		}
 
-		if (self->_eventhandler->keys & EH_K_RESTART) {
+		if (self->_eventhandler->pressedKeys & EH_K_ESC) {
+			inMenu = !inMenu;
+			if (inMenu) {
+				wh_enableCursor();
+				mn_restartMenu();
+			} else 		wh_disableCursor();
+		}
+
+		if (self->_eventhandler->pressedKeys & EH_K_GRAVE) {
+			inMenu = true;
+			wh_enableCursor();
+			mn_openConsole();
+			
+		}
+
+		if (self->_eventhandler->keys & EH_K_RESTART && !inMenu) {
 			game_quit(self);
 			if (game_init(self)) return;
 			continue;
+		}
+
+		if (inMenu) {
+			*(self->_eventhandler) = (EventHandler){0};
 		}
 
 		lua_getglobal(self->L, "update");
@@ -96,6 +125,13 @@ void game_startLoop(struct Game* self)
 		
 		self->_windowhandler->startFrame(self->_windowhandler);
 		self->_playground->render(self->_playground, self->_windowhandler);
+		if (inMenu) {
+			mn_drawMenu();
+		}
+		
+		
+		
+		
 		self->_windowhandler->endFrame(self->_windowhandler);
 
 	}

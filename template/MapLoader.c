@@ -7,7 +7,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <raylib.h>
+
 #include "model_shared.h"
+
+
 
 
 void* getRawData(const char* filename, size_t* outputFileSize)
@@ -16,13 +20,13 @@ void* getRawData(const char* filename, size_t* outputFileSize)
     FILE* fp = fopen(filename, "rb");
 
     if (fp == NULL) {
-        perror("File doesnt exist\n");
+        TraceLog(LOG_ERROR,"MapLoader.c: File doesnt exist" );
         return NULL;
     }
     
     
     if (fseek(fp, 0, SEEK_END) != 0) {
-        perror("fseek failed\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: fseek failed");
         fclose(fp);
         return NULL;
     }
@@ -30,13 +34,13 @@ void* getRawData(const char* filename, size_t* outputFileSize)
     size_t fileSize = ftell(fp);
 
     if (fileSize == -1L) {
-        perror("ftell failed\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: ftell failed");
         fclose(fp);
         return NULL;
     }
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
-        perror("fseek failed\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: fseek failed");
         fclose(fp);
         return NULL;
     }
@@ -44,7 +48,7 @@ void* getRawData(const char* filename, size_t* outputFileSize)
     data = malloc(fileSize);
 
     if (data == NULL) {
-        perror("malloc failed\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: malloc failed");
         fclose(fp);
         return NULL;
     }
@@ -52,7 +56,7 @@ void* getRawData(const char* filename, size_t* outputFileSize)
     size_t bytesRead = fread(data,1,fileSize,fp);
 
     if (bytesRead < fileSize) {
-        perror("fread failed\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: fread failed");
         fclose(fp);
         free(data);
         return NULL;
@@ -78,21 +82,21 @@ model_t* loadMyMap(const char* filename)
     model_t mod = {0};
 
 
-    strcpy(mod.name, filename);
+    strncpy(mod.name, filename, 128);
     
 
     if (magic == BSPVERSION) {
-        printf("version == 29\n");
+        TraceLog(LOG_INFO, "MapLoader.c: version == 29");
     } else if (magic == BSP2VERSION) {
         mod.isbsp2 = true;
-        printf("version == BSP2\n");
+        TraceLog(LOG_INFO, "MapLoader.c: version == BSP2");
     } else {
-        perror("Wrong BSP version\n");
+        TraceLog(LOG_ERROR, "MapLoader.c: Wrong BSP version");
         free(data);
         return NULL;
     }
 
-    printf("BSP loaded successfully!\n");
+    TraceLog(LOG_INFO, "MapLoader.c: loaded successfully!");
 
     
 
@@ -103,7 +107,6 @@ model_t* loadMyMap(const char* filename)
 
     free(data);
 
-    printf("Ended without seg fault\n");
 
     model_t* mesh = (model_t*)malloc(sizeof(model_t));
 

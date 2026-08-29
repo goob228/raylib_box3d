@@ -17,6 +17,7 @@ void eh_processInput(struct EventHandler * self)
 	if (IsKeyDown(KEY_LEFT_SHIFT))     self->keys |= EH_K_SHIFT;
 	if (IsKeyDown(KEY_SPACE)) self->keys |= EH_K_SPACE;
 	if (IsKeyDown(KEY_R))     self->keys |= EH_K_RESTART;
+	if (IsKeyDown(KEY_ESCAPE))	self->keys |= EH_K_ESC;
 	if (WindowShouldClose())  self->keys |= EH_K_QUIT;
 
 
@@ -28,6 +29,8 @@ void eh_processInput(struct EventHandler * self)
 	if (IsKeyPressed(KEY_LEFT_SHIFT))     self->pressedKeys |= EH_K_SHIFT;
 	if (IsKeyPressed(KEY_SPACE)) self->pressedKeys |= EH_K_SPACE;
 	if (IsKeyPressed(KEY_R))     self->pressedKeys |= EH_K_RESTART;
+	if (IsKeyPressed(KEY_ESCAPE))     self->pressedKeys |= EH_K_ESC;
+	if (IsKeyPressed(KEY_GRAVE)) self->pressedKeys |= EH_K_GRAVE;
 	if (WindowShouldClose())     self->pressedKeys |= EH_K_QUIT;
 
 	Vector2 mdel = GetMouseDelta();
