@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <malloc.h>
 
 
@@ -9,13 +10,15 @@
 #include "Playground.h"
 #include "LuaBind.h"
 #include "Menu.h"
+#include "Resource.h"
+#include "Zone.h"
 
 
 static bool inMenu = 0;
 
 void game_quit(struct Game* self)
 {
-
+	
 	self->_playground->cleanUp(self->_playground);
 	self->_windowhandler->close(self->_windowhandler);
 
@@ -26,6 +29,8 @@ void game_quit(struct Game* self)
 	free(self->_eventhandler);
 	free(self->_windowhandler);
 	free(self->_playground);
+
+	clearResources();
 }
 
 int game_init(struct Game* self)
@@ -54,12 +59,18 @@ int game_init(struct Game* self)
 	mn_initMenu();
 	inMenu = false;
 
-	self->_playground = (Playground*)malloc(sizeof(Playground));
+	
+
+	self->_playground = (Playground*)calloc(1, sizeof(Playground));
+	
 
 	if (!self->_playground) return 1;
 
-	pg_init(self->_playground, self->targetFPS);
 
+
+	initResources();
+
+	pg_init(self->_playground, self->targetFPS);
 
 	self->running = true;
 
@@ -69,19 +80,40 @@ int game_init(struct Game* self)
 
 	lual_init(self->L, self->_playground, self->_eventhandler);
 
-	
 
 	return 0;
 
 }
 
+void* raylib_malloc_wrapper(size_t size) {
+	return Z_Malloc(size);
+}
+
+void* raylib_calloc_wrapper(size_t numofelements, size_t sizeofelement){
+	return Z_Malloc(numofelements*sizeofelement);
+}
+
+void* raylib_free_wrapper(void* ptr) {
+	Z_Free(ptr);
+}
 
 void game_startLoop(struct Game* self)
 {
+		
+	#define GAME_MEMORY_SIZE (64 * 1024 * 1024)
+
+	void* global_buffer = malloc(GAME_MEMORY_SIZE);
+
+	if (!global_buffer) return;
+
+	Memory_Init(global_buffer, GAME_MEMORY_SIZE);
+
+	
 
 	if (game_init(self)) return;
 
 	
+
 
 	
 

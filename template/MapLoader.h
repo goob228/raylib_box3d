@@ -5,7 +5,7 @@
 
 #include "model_shared.h"
 
-model_t* loadMyMap(const char* filename);
+model_t loadMyMap(const char* filename);
 
 
 #endif //MAPLOADER_H

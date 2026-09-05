@@ -5,7 +5,7 @@
 
 
 
-
+#include <box3d/box3d.h>
 
 
 #include "EventHandler.h"
@@ -13,7 +13,7 @@
 #include "Camera.h"
 #include "Object.h"
 #include "Animation.h"
-#include <box3d/box3d.h>
+#include "Resource.h"
 
 
 
@@ -21,20 +21,18 @@
 
 #define MAX_BODIES 512
 #define MAX_OBJECTS 512
-#define MAX_TEXTURES 512
 #define MAX_MODELS 512
 #define MAX_SPRINGS 512
 
 #define MAX_LINES 64
 
 
+
 typedef struct Playground
 {
 	
 
-	int (*addObject)(struct Playground* self, Vector3 pos, Vector3 scale, int texId, int modelId, ObjectType type);
-	int (*addTexture)(struct Playground* self, char const* fileName);
-	int (*addModel)(struct Playground* self, char const* fileName);
+	int (*addObject)(struct Playground* self, Vector3 pos, Vector3 scale, Resource_key* texId, Resource_key* modelId, ObjectType type);
 
 
 
@@ -45,8 +43,6 @@ typedef struct Playground
 
 	b3BodyId bodies[MAX_BODIES];
 	Object objects[MAX_OBJECTS];
-	Texture2D textures[MAX_TEXTURES];
-	Model models[MAX_MODELS];
 	Spring springs[MAX_SPRINGS];
 
 
@@ -79,7 +75,6 @@ typedef struct Playground
 
 
 void pg_init(struct Playground* self, int targetFPS);
-
 
 
 #endif

@@ -17,7 +17,7 @@ static Font jbmono = {0};
 
 static int fontSize = 32;
 
-#define LOG_BUFFER_SIZE 16384
+#define LOG_BUFFER_SIZE 32768
 #define LINE_SIZE 128
 
 static char log_buffer[LOG_BUFFER_SIZE] = {0};
@@ -40,8 +40,7 @@ int count_char(char* str, char c, int max)
 void MyTraceLog(int msgType, const char *text, va_list args)
 {
     static char str[LINE_SIZE] = {0};
-    //vprintf(text, args);
-    //printf(" YAAAA \n");
+    vprintf(text, args); printf("\n");
 
     vsnprintf(str, LINE_SIZE, text, args);
     size_t len = strnlen(str, LINE_SIZE);
@@ -91,6 +90,9 @@ void mn_initMenu()
     
 
     GuiSetStyle(DEFAULT, LISTVIEW, 0);
+
+    initCvars();
+    initCmds();
 }
 
 void mn_openConsole()

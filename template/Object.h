@@ -6,6 +6,7 @@
 #include <raylib.h>
 #include <raymath.h>
 
+#include "Resource.h"
 
 
 typedef enum 
@@ -46,8 +47,8 @@ typedef struct Object
 	Vector3 scale;
 	ObjectType type;
 	int physId;
-	int texId;
-	int modelId;
+	Resource_key texres;
+	Resource_key modelres;
 	bool onRemove;
 	bool alive;
 	

@@ -62,6 +62,7 @@ void printCvar(Cvar* cvar);
 
 void setCvarCallback(Cvar* cvar, void (*callback)(Cvar*));
 
+void initCvars();
 
 extern Cvar cv_width;
 extern Cvar cv_height;

@@ -6,28 +6,35 @@
 #include "EventHandler.h"
 #include "Prefabs.h"
 
+#include "Resource.h"
+
 
 int lua_addTexture(lua_State* L)
 {
-	lua_getglobal(L, "PLAYGROUND");
-	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	pg->addTexture(pg, lua_tostring(L, 1));
-	int idx = pg->textureCount - 1;
-	lua_pushnumber(L, idx);
+
+
+	Resource_key key = loadTextureResource(lua_tostring(L, 1));
+	Resource_key* keyptr = (Resource_key*)lua_newuserdata(L, sizeof(Resource_key));
+	
+	*keyptr = key;
+
+	
 
 	return 1;
 }
 
 int lua_addModel(lua_State* L)
 {
-	lua_getglobal(L, "PLAYGROUND");
-	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	pg->addModel(pg, lua_tostring(L, 1));
 
-	int idx = pg->modelCount - 1;
-	lua_pushnumber(L, idx);
+
+	Resource_key key = loadModelResource(lua_tostring(L, 1));
+	Resource_key* keyptr = (Resource_key*)lua_newuserdata(L, sizeof(Resource_key));
+	
+	*keyptr = key;
+
+	
 
 	return 1;
 }
@@ -37,8 +44,8 @@ int lua_addObject(lua_State* L)
 	lua_getglobal(L, "PLAYGROUND");
 	Playground* pg = (Playground*)lua_touserdata(L, -1);
 
-	int texId = lua_tonumber(L, 1);
-	int modelId = lua_tonumber(L, 2);
+	Resource_key* texId = (Resource_key*)lua_touserdata(L, 1);
+	Resource_key* modelId = (Resource_key*)lua_touserdata(L, 2);
 	ObjectType type = (ObjectType)(int)lua_tonumber(L, 3);
 	float px = (float)lua_tonumber(L, 4);
 	float py = (float)lua_tonumber(L, 5);

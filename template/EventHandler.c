@@ -37,5 +37,7 @@ void eh_processInput(struct EventHandler * self)
 
 	self->mx = mdel.x;
 	self->my = mdel.y;
+
+	self->s = GetMouseWheelMove();
 }
 

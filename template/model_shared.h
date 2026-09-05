@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+
+
 
 #include "bspfile.h"
 
@@ -13,6 +16,7 @@ typedef struct {
     int triangleCount;      // Number of triangles stored (indexed or not)
 
     int num_firsttriangle;
+    int num_firstvertex;
 
     // Vertex attributes data
     float *vertices;        // Vertex position (XYZ - 3 components per vertex) (shader-location = 0)
@@ -42,7 +46,7 @@ mtexinfo_t;
 typedef struct texture_s
 {
     // name
-	char name[16];
+	char name[32];
 
 	// q1bsp
 	// size
@@ -54,7 +58,7 @@ typedef struct texture_s
 
 typedef struct {
 
-    char name[128];
+    char name[MAX_QPATH];
 
     int meshCount;          // Number of meshes
     mesh_t* mesh; 
@@ -77,8 +81,17 @@ typedef struct {
     int	numtexinfo;
     mtexinfo_t* texinfo;
 
+	int				num_lightdata;
+	unsigned char			*lightdata;
+
+	int light_width;
+	int light_height;
+	unsigned char* lightTexture;
+
     bool isbsp2;
     bool ishlbsp;
+
+
 
 } model_t;
 
@@ -94,9 +107,60 @@ typedef struct sizebuf_s
 	bool	badread;		// set if a read goes beyond end of message
 } sizebuf_t;
 
+typedef int64_t fs_offset_t;
 
+typedef struct qpic_s
+{
+	int			width, height;
+	unsigned char		data[4];			// variably sized
+} qpic_t;
+
+
+
+typedef struct wadinfo_s
+{
+	char		identification[4];		// should be WAD2 or 2DAW
+	int			numlumps;
+	int			infotableofs;
+} wadinfo_t;
+
+typedef struct lumpinfo_s
+{
+	int			filepos;
+	int			disksize;
+	int			size;					// uncompressed
+	char		type;
+	char		compression;
+	char		pad1, pad2;
+	char		name[16];				// must be null terminated
+} lumpinfo_t;
+
+
+typedef struct mwad_s
+{
+	FILE *file;
+	int numlumps;
+	lumpinfo_t *lumps;
+	int version;
+}
+mwad_t;
+
+typedef struct wadstate_s
+{
+	unsigned char *gfx_base;
+	mwad_t gfx;
+}
+wadstate_t;
+
+extern int model_shared_image_width, model_shared_image_height;
 
 void loadBSP(model_t* mod, void* data, void* dataEnd);
+
+void W_LoadTextureWadFile (char *filename, int complain);
+
+unsigned char *W_GetTextureBGRA(char *name);
+
+void loadPalette(const char* filename);
 
 
 #endif //MODEL_SHARED_H

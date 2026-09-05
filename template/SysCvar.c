@@ -8,11 +8,12 @@
 #include <raylib.h>
 
 
-Cvar cv_width =     (Cvar){"width",     "width of screen",          "1200",     ACCESS_CLIENT,      CV_INT,     .valuei = 1200,    .dvaluei = 1200,     &cv_height};
-Cvar cv_height =    (Cvar){"height",    "height of screen",         "800",      ACCESS_CLIENT,      CV_INT,     .valuei = 800,     .dvaluei = 800,      &cv_vsync};
-Cvar cv_vsync =     (Cvar){"vsync",     "vsync toggle",             "1",        ACCESS_SERVER,      CV_BOOL,    .valueb = true,    .dvalueb = true,     &cv_FPS};
-Cvar cv_FPS =       (Cvar){"FPS",       "frames per second",        "60",       ACCESS_SERVER,      CV_INT,     .valuei = 60,      .dvaluei = 60,       &cv_TPS};
-Cvar cv_TPS =       (Cvar){"TPS",       "game ticks per second",    "60",       ACCESS_SERVER,      CV_INT,     .valuei = 60,      .dvaluei = 60,       NULL};
+
+Cvar cv_width =     {"width",     "width of screen",          "1200",     ACCESS_CLIENT,      CV_INT,     .valuei = 1200,    .dvaluei = 1200,     NULL};
+Cvar cv_height =    {"height",    "height of screen",         "800",      ACCESS_CLIENT,      CV_INT,     .valuei = 800,     .dvaluei = 800,      NULL};
+Cvar cv_vsync =     {"vsync",     "vsync toggle",             "1",        ACCESS_SERVER,      CV_BOOL,    .valueb = true,    .dvalueb = true,     NULL};
+Cvar cv_FPS =       {"FPS",       "frames per second",        "60",       ACCESS_SERVER,      CV_INT,     .valuei = 60,      .dvaluei = 60,       NULL};
+Cvar cv_TPS =       {"TPS",       "game ticks per second",    "60",       ACCESS_SERVER,      CV_INT,     .valuei = 60,      .dvaluei = 60,       NULL};
 
 void printCvar(Cvar* cvar)
 {
@@ -80,4 +81,12 @@ void setCvarCallback(Cvar* cvar, void (*callback)(Cvar*))
     if (cvar) {
         cvar->callback = callback;
     }
+}
+
+void initCvars(){
+    cv_width.next = &cv_height;
+    cv_height.next = &cv_vsync;
+    cv_vsync.next = &cv_FPS;
+    cv_FPS.next = &cv_TPS;
+    cv_TPS.next = NULL;
 }

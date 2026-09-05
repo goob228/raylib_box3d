@@ -42,7 +42,7 @@ void gc_update(struct Object* obj, Playground* playground)
 		camdata->yaw -= playground->eh.mx * camdata->sensitivity;
 		camdata->pitch -= playground->eh.my * camdata->sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
 		camdata->pitch = Clamp(camdata->pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
-		camdata->dist *= (1.0f - GetMouseWheelMove()*0.1f);
+		camdata->dist *= (1.0f - playground->eh.s*0.1f);
  		if (self->parent) {
 			self->parent->updateMatrix(self->parent);
 			if (camdata->type == CAM_FIRST_PERSON) {

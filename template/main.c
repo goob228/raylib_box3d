@@ -2,7 +2,7 @@
 
 
 
-int WinMain()
+int main()
 {
 	Game game;
 

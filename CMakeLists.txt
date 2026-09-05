@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.11)
 
 project(games)
 
+set(CMAKE_C_STANDARD 17)
+
 file(GLOB_RECURSE BOX3D_SOURCE CONFIGURE_DEPENDS "thirdparty/src/box3d/*.c")
 
 file(GLOB_RECURSE LUA_SOURCE CONFIGURE_DEPENDS "thirdparty/src/lua/*.c")
@@ -20,7 +22,7 @@ set(RAYLIB_SOURCE
 
 file(GLOB_RECURSE TEMPLATE_SOURCE CONFIGURE_DEPENDS "template/*.c")
 
-add_executable( ${PROJECT_NAME} WIN32  ${BOX3D_SOURCE} ${LUA_SOURCE} ${RAYLIB_SOURCE} ${TEMPLATE_SOURCE} )
+add_executable( ${PROJECT_NAME} ${BOX3D_SOURCE} ${LUA_SOURCE} ${RAYLIB_SOURCE} ${TEMPLATE_SOURCE} )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE PLATFORM_DESKTOP)
 

@@ -5,6 +5,8 @@
 #include <rlgl.h>
 
 
+#include "Resource.h"
+
 void ob_update(struct Object* self, Playground* playground)
 {
 	if (self->type != OBJ_STATIC && self->type != OBJ_OBSTACLE) {
@@ -35,13 +37,14 @@ void ob_updateMatrix(struct Object* self)
 }
 
 void ob_draw(struct Object* self, Playground* playground)
-{
-	playground->models[self->modelId].transform = self->transform;
-	if (self->texId)
-		playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
+{	
+	Model md = getModelResource(&(self->modelres));
+	md.transform = self->transform;
+	if (self->texres.id)
+		md.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&(self->texres));
 
 	
-	DrawModel(playground->models[self->modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	DrawModel(md, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
 

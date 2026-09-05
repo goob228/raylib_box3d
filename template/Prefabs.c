@@ -593,9 +593,10 @@ void char_draw(struct Object* self, Playground* playground)
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	if (camdata->type == CAM_FIRST_PERSON) return;
-	playground->models[self->modelId].transform = self->transform;
-	playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
-	DrawModel(playground->models[self->modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	Model md = getModelResource(&(self->modelres));
+	md.transform = self->transform;
+	md.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&(self->texres));
+	DrawModel(md, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
 
