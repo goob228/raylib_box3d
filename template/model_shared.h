@@ -11,18 +11,31 @@
 
 #define	MAX_QPATH		128
 
+typedef struct atlase_s {
+	int ax;
+	int ay;
+	int wx;
+	int wy;
+
+	int offset;
+
+} atlase_t;
+
 typedef struct {
     int vertexCount;        // Number of vertices stored in arrays
     int triangleCount;      // Number of triangles stored (indexed or not)
+	int faceCount;
 
     int num_firsttriangle;
     int num_firstvertex;
+	int num_firstface;
 
     // Vertex attributes data
     float *vertices;        // Vertex position (XYZ - 3 components per vertex) (shader-location = 0)
     float *texcoords;       // Vertex texture coordinates (UV - 2 components per vertex) (shader-location = 1)
     float *texcoords2;      // Vertex texture second coordinates (UV - 2 components per vertex) (shader-location = 5)
     float *normals;         // Vertex normals (XYZ - 3 components per vertex) (shader-location = 2)
+	atlase_t* atlases;             // Face atlas (1 component per face)
     
     unsigned short *indices; // Vertex indices (in case vertex data comes indexed)
 
@@ -43,6 +56,22 @@ typedef struct mtexinfo_s
 }
 mtexinfo_t;
 
+typedef enum {
+	TEXTYPE_DEFAULT,
+	TEXTYPE_CUTOUT,
+	TEXTYPE_SKY,
+	TEXTYPE_LAVA,
+	TEXTYPE_SLIME,
+	TEXTYPE_TELE,
+	TEXTYPE_WATER,
+
+	TEXTYPE_COUNT,
+
+	TEXTYPE_FIRSTLIQUID = TEXTYPE_LAVA,
+	TEXTYPE_LASTLIQUID = TEXTYPE_WATER,
+	TEXTYPE_NUMLIQUIDS = TEXTYPE_LASTLIQUID + 1 - TEXTYPE_FIRSTLIQUID,
+} textype_t;
+
 typedef struct texture_s
 {
     // name
@@ -53,6 +82,8 @@ typedef struct texture_s
 	unsigned int width, height;
 
     unsigned int material_id;
+
+	textype_t type;
 
 } texture_t;
 
@@ -87,6 +118,10 @@ typedef struct {
 	int light_width;
 	int light_height;
 	unsigned char* lightTexture;
+
+	bool lightOverflow;
+
+	char *entities;
 
     bool isbsp2;
     bool ishlbsp;
@@ -161,6 +196,8 @@ void W_LoadTextureWadFile (char *filename, int complain);
 unsigned char *W_GetTextureBGRA(char *name);
 
 void loadPalette(const char* filename);
+
+void parseEntities(const char* str);
 
 
 #endif //MODEL_SHARED_H

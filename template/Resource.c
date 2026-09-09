@@ -21,9 +21,13 @@
 #define MAP_USAGE 2
 
 
-b3WorldId g_worldid = {0};
+
 
 Shader lightmap_shader = {0};
+
+Shader discard_shader = {0};
+
+Shader skybox_shader = {0};
 
 
 typedef struct {
@@ -45,6 +49,9 @@ Model LoadModelFromModel_t(model_t* mt)
 	int numofmeshes = 0;
 
 	for (int i = 0; i < mt->meshCount; i++) {
+        if (!strcmp(mt->data_textures[i].name, "trigger")) {
+            continue;
+        }
 		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
 			numofmeshes++;
 		}
@@ -55,10 +62,13 @@ Model LoadModelFromModel_t(model_t* mt)
 
 	for (int i = 0, j = 0; i < mt->meshCount; i++) {
 		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
+            if (!strcmp(mt->data_textures[i].name, "trigger")) {
+                continue;
+            }
 			meshes[j].triangleCount = 		mt->mesh[i].triangleCount;
 			meshes[j].vertexCount = 		mt->mesh[i].vertexCount;
 			meshes[j].vertices =			mt->mesh[i].vertices;
-			meshes[j].normals =			mt->mesh[i].normals;
+			meshes[j].normals =			    mt->mesh[i].normals;
 			meshes[j].texcoords =			mt->mesh[i].texcoords;
             meshes[j].texcoords2 =			mt->mesh[i].texcoords2;
 			UploadMesh(&meshes[j], true);
@@ -96,18 +106,35 @@ Model LoadModelFromModel_t(model_t* mt)
 	Resource_key key = (Resource_key){0};
 
 	for (int i = 0, j = 0; i < mt->num_textures, j < model.materialCount; i++) {
+        if (!strcmp(mt->data_textures[i].name, "trigger")) {
+            continue;
+        }
 		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
 			model.materials[j] = LoadMaterialDefault();
 			//int len = strnlen(mt->data_textures[i].name, sizeof(mt->data_textures[i].name));
 			//strncpy(&(mt->data_textures[i].name[len]), ".png", 5);
-			key = loadTextureResource(mt->data_textures[i].name);
-			
-			model.materials[j].shader = lightmap_shader;
+            if (mt->data_textures[i].type == TEXTYPE_SKY) {
+                key = loadTextureResource("\\sky");
+                model.materials[j].shader = skybox_shader;
+                model.materials[j].maps[MATERIAL_MAP_CUBEMAP].texture = getTextureResource(&key);
+            } else {
+                key = loadTextureResource(mt->data_textures[i].name);
+                
+                if (mt->data_textures[i].name[0] = '{') {
+                    model.materials[j].shader = discard_shader;
+                } else {
+                    model.materials[j].shader = lightmap_shader;
+                }
+                   
 
-			model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&key);
-            key = loadTextureResource("\\light");
-            model.materials[j].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&key);
-			SetTextureWrap(model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture, TEXTURE_WRAP_REPEAT);
+                model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&key);
+                key = loadTextureResource("\\light");
+                model.materials[j].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&key);
+                SetTextureWrap(model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture, TEXTURE_WRAP_REPEAT);
+            }
+			    
+			
+			
 			j++;
 		}
 	}
@@ -151,6 +178,8 @@ void loadMapResource(const char* mapname)
 	shapeDef.materialCount = 3;
 
 	b3CreateMeshShape( body, &shapeDef, mesh, b3Vec3_one );
+
+    parseEntities(mapMod.entities);
 }
 
 void initResources()
@@ -173,14 +202,23 @@ void initResources()
 
     UnloadDirectoryFiles(files);
 
-    b3WorldDef worldDef = b3DefaultWorldDef();
-	worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
-	worldDef.enableContinuous = true;
-
-	g_worldid = b3CreateWorld(&worldDef);
+    
 	
     if (!IsShaderValid(lightmap_shader))
-        lightmap_shader = LoadShader(TextFormat("res/shaders/shader.vs", 330), TextFormat("res/shaders/shader.fs", 330));
+        lightmap_shader = LoadShader(TextFormat("res/shaders/shader.vs"), TextFormat("res/shaders/shader.fs"));
+
+    if (!IsShaderValid(discard_shader))
+        discard_shader = LoadShader(TextFormat("res/shaders/shader_discard.vs"), TextFormat("res/shaders/shader_discard.fs"));
+
+    if (!IsShaderValid(skybox_shader))
+        skybox_shader = LoadShader(TextFormat("res/shaders/skybox.vs"),TextFormat("res/shaders/skybox.fs"));
+        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "environmentMap"), (int[1]){ MATERIAL_MAP_CUBEMAP }, SHADER_UNIFORM_INT);
+        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "doGamma"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
+        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "vflipped"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
+
+    Image image = LoadImage("res/skybox.png");
+    setTextureResource(LoadTextureCubemap(image, CUBEMAP_LAYOUT_AUTO_DETECT), "\\sky");
+    UnloadImage(image);
 
     loadMapResource("res/qbj3_radiatoryang.bsp");
     

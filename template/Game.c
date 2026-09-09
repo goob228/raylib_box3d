@@ -13,6 +13,8 @@
 #include "Resource.h"
 #include "Zone.h"
 
+Playground* g_playground = NULL;
+
 
 static bool inMenu = 0;
 
@@ -29,6 +31,8 @@ void game_quit(struct Game* self)
 	free(self->_eventhandler);
 	free(self->_windowhandler);
 	free(self->_playground);
+
+	g_playground = NULL;
 
 	clearResources();
 }
@@ -66,11 +70,15 @@ int game_init(struct Game* self)
 
 	if (!self->_playground) return 1;
 
+	g_playground = self->_playground;
 
 
-	initResources();
+
+	
 
 	pg_init(self->_playground, self->targetFPS);
+	
+	initResources();
 
 	self->running = true;
 

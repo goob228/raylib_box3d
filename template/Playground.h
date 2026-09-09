@@ -19,14 +19,14 @@
 
 #include "stdint.h"
 
+
+
+
 #define MAX_BODIES 512
-#define MAX_OBJECTS 512
-#define MAX_MODELS 512
-#define MAX_SPRINGS 512
+#define MAX_OBJECTS 128
+#define MAX_SPRINGS 128
 
 #define MAX_LINES 64
-
-
 
 typedef struct Playground
 {
@@ -51,11 +51,8 @@ typedef struct Playground
 
 	int bodyCount;
 	int objCount;
-	int textureCount;
-	int modelCount;
 	int springCount;
 
-	Shader basicShader;
 
 	Object camera;
 	b3WorldId worldId;

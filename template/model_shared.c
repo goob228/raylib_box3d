@@ -12,15 +12,15 @@
 
 #include "Resource.h"
 #include "Zone.h"
+#include "G_local.h"
 
-#define INV_MULTI 32.0f
-#define MULTIPLIER (1.0f / INV_MULTI)
+
 #define PRINT(val, ...) TraceLog(LOG_WARNING, "model_shared.c: " val, ##__VA_ARGS__)
 
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
-#define LIGHTMAP_WIDTH 8192
-#define LIGHTMAP_HEIGHT 8192
+#define LIGHTMAP_WIDTH 4096
+#define LIGHTMAP_HEIGHT 4096
 
 
 static model_t loadmodel;
@@ -334,7 +334,7 @@ unsigned char *W_ConvertWAD2TextureRGBA(sizebuf_t *sb)
 	{
 
 		p = *in++;
-		if (name[0] == '{' && p == 255)
+		if (model_shared_texture_name[0] == '{' && p == 255)
 			out[0] = out[1] = out[2] = out[3] = 0;
 		else
 		{
@@ -343,10 +343,9 @@ unsigned char *W_ConvertWAD2TextureRGBA(sizebuf_t *sb)
 			out[1] = pal[p+1];
 			out[2] = pal[p+2];
 			out[3] = 255;
+			
 
-			if (p == 255*3) {
-				out[3] = 0;
-			}
+
 		}
 		out += 4;
 	}
@@ -396,7 +395,7 @@ unsigned char *W_ConvertWAD3TextureRGBA(sizebuf_t *sb)
 	{
 
 		p = *in++;
-		if (name[0] == '{' && p == 255)
+		if (model_shared_texture_name[0] == '{' && p == 255)
 			out[0] = out[1] = out[2] = out[3] = 0;
 		else
 		{
@@ -405,10 +404,6 @@ unsigned char *W_ConvertWAD3TextureRGBA(sizebuf_t *sb)
 			out[1] = pal[p+1];
 			out[2] = pal[p+2];
 			out[3] = 255;
-
-			if (p == 255*3) {
-				out[3] = 0;
-			}
 		}
 		out += 4;
 	}
@@ -506,7 +501,133 @@ void loadPalette(const char *fileName)
     else TraceLog(LOG_WARNING, "model_shared.c: File name provided is not valid");
 }
 
+#define MAX_KEY 32
+#define MAX_VALUE 1024
 
+typedef enum {
+	PARSE_CLEAR,
+	PARSE_ENTITY,
+	PARSE_KEY,
+	PARSE_ENTITY_VALUE,
+	PARSE_VALUE,
+} Parse_State;
+
+void parseEntities(const char* str)
+{
+	int mark = Hunk_LowMark();
+	int perEntityMark = mark;
+	Parse_State state = PARSE_CLEAR;
+	
+	char key[MAX_KEY] = {0};
+	char value[MAX_VALUE] = {0};
+
+	int key_counter = 0;
+	int value_counter = 0;
+
+	int pairs = 0;
+
+	for (; str[0]; str++) {
+		switch (state)
+		{
+		case PARSE_CLEAR:
+			if (str[0] == '{') {
+				state = PARSE_ENTITY;
+			}
+			break;
+
+		case PARSE_ENTITY:
+			if (str[0] == '"') {
+				state = PARSE_KEY;
+				key_counter = 0;
+				key[0] = '\0';
+			}
+
+			if (str[0] == '}') {
+				G_CallSpawn();
+				state = PARSE_CLEAR;
+				pairs = 0;
+				Hunk_FreeToLowMark(perEntityMark);
+			}
+
+			break;
+		
+		case PARSE_KEY:
+			if (str[0] == '"') {
+				state = PARSE_ENTITY_VALUE;
+				key[key_counter++] = '\0';
+			}
+			else {
+				key[key_counter++] = str[0];
+				if (key_counter >= MAX_KEY) {
+					key[MAX_KEY-1] = '\0';
+					TraceLog(LOG_WARNING, "model_shared.c: parseEntities: key len out of range %i, (key: %s)", MAX_KEY, key);
+					return;
+				}
+			}
+			break;
+
+		case PARSE_ENTITY_VALUE:
+			if (str[0] == '"') {
+				state = PARSE_VALUE;
+				value_counter = 0;
+				value[0] = '\0';
+			}
+			break;
+		
+		case PARSE_VALUE:
+			if (str[0] == '"') {
+				state = PARSE_ENTITY;
+				value[value_counter++] = '\0';
+				key[MAX_KEY-1] = '\0';
+				value[MAX_VALUE-1] = '\0';
+				spawnVars[pairs][0] = Hunk_AllocNoFill(key_counter);
+				spawnVars[pairs][1] = Hunk_AllocNoFill(value_counter);
+				memcpy_s(spawnVars[pairs][0], key_counter, key, key_counter);
+				memcpy_s(spawnVars[pairs][1], value_counter, value, value_counter);
+				pairs++;
+				if (pairs >= MAX_SPAWN_VARS) {
+					TraceLog(LOG_WARNING, "model_shared.c: spawn vars count out of range");
+					pairs = 0;
+					Hunk_FreeToLowMark(perEntityMark);
+				}
+				spawnVars[pairs][0] = NULL;
+				spawnVars[pairs][1] = NULL;
+				
+				//TraceLog(LOG_INFO, "key [%s] value [%s]", key, value);
+			}
+			else {
+				value[value_counter++] = str[0];
+				if (value_counter >= MAX_VALUE) {
+					key[MAX_KEY-1] = '\0';
+					value[MAX_VALUE-1] = '\0';
+					TraceLog(LOG_WARNING, "model_shared.c: parseEntities: value len out of range %i, (key: %s, value: %s)", MAX_VALUE, key, value);
+					return;
+				}
+			}
+			break;
+		
+		default:
+			break;
+		}
+	}
+
+	Hunk_FreeToLowMark(mark);
+}
+
+static void Mod_Q1BSP_LoadEntities(sizebuf_t *sb)
+{
+	loadmodel.entities = NULL;
+
+	if (!sb->cursize)
+		return;
+	int beforemark = Hunk_LowMark();
+	loadmodel.entities = (char *)Hunk_AllocNameNoFill(sb->cursize + 1, "entities");
+	MSG_ReadBytes(sb, sb->cursize, (unsigned char *)loadmodel.entities);
+	loadmodel.entities[sb->cursize] = 0;
+	//if (loadmodel.ishlbsp) Mod_Q1BSP_ParseWadsFromEntityLump(loadmodel->brush.entities);
+	
+	//Hunk_FreeToLowMark(beforemark);
+}
 
 static void Mod_Q1BSP_LoadVertexes(sizebuf_t *sb)
 {
@@ -580,6 +701,32 @@ static void Mod_Q1BSP_LoadSurfedges(sizebuf_t *sb)
 		loadmodel.surfedges[i] = MSG_ReadLittleLong(sb);
 }
 
+
+
+/*
+================
+Mod_TextureTypeFromName
+================
+*/
+static textype_t Mod_TextureTypeFromName (const char *texname)
+{
+	if (texname[0] == '*')
+	{
+		if (!strncmp (texname + 1, "lava",  4))	return TEXTYPE_LAVA;
+		if (!strncmp (texname + 1, "slime", 5))	return TEXTYPE_SLIME;
+		if (!strncmp (texname + 1, "tele",  4))	return TEXTYPE_TELE;
+		return TEXTYPE_WATER;
+	}
+
+	if (texname[0] == '{')
+		return TEXTYPE_CUTOUT;
+
+	if (!strncmp (texname,"sky",3))
+		return TEXTYPE_SKY;
+
+	return TEXTYPE_DEFAULT;
+}
+
 static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 {
 	int i, j, k, num, max, altmax, mtwidth, mtheight, doffset, incomplete, nummiptex = 0, firstskynoshadowtexture = 0;
@@ -638,6 +785,7 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			memcpy(temptexture.name, name, 16);
 			temptexture.width = mtwidth;
 			temptexture.height = mtheight;
+			temptexture.type = Mod_TextureTypeFromName(temptexture.name);
 			loadmodel.data_textures[i] = temptexture;
 
 		}
@@ -666,6 +814,10 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			TraceLog(LOG_WARNING, "model_shared.c: LoadTextures: %s: miptex #%i missing\n", loadmodel.name, i);
 			continue;
 		}
+		
+		if (loadmodel.data_textures[i].type == TEXTYPE_SKY) {
+			continue;
+		}
 
 		MSG_InitReadBuffer(&miptexsb, sb->data + doffset, sb->cursize - doffset);
 		int mark = Hunk_LowMark();
@@ -686,10 +838,11 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			Texture texture = LoadTextureFromImage(image);
 			GenTextureMipmaps(&texture);
 			SetTextureFilter(texture, TEXTURE_FILTER_TRILINEAR);
-			Hunk_FreeToLowMark(mark);
 			Resource_key key =  setTextureResource(texture, model_shared_texture_name);
 
 		}
+
+		Hunk_FreeToLowMark(mark);
 
 	}
 }
@@ -811,7 +964,8 @@ static void putInAtlas(lightmap_state* lstate, int w, int h, int* latlasX, int* 
 {
 	
 	if (lstate->my+h >= lstate->height) {
-		//TraceLog(LOG_ERROR, "model_shared.c: lightatlas reached full, too big area of map");
+		*latlasX = 0;
+		*latlasY = 0;
 		return;
 	}
 
@@ -835,12 +989,14 @@ static void putInAtlas(lightmap_state* lstate, int w, int h, int* latlasX, int* 
 static void putToAtlasTexture(int w, int h, int x, int y, int lightmapoffset) 
 {
 	if (!loadmodel.lightTexture || !loadmodel.lightdata) {
-		//TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas"); 
+		TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas"); 
+		loadmodel.lightOverflow = true;
 		return;
 	}
 
 	if ((x < 0) || (y < 0) || (x+w >= loadmodel.light_width) || (y+h >= loadmodel.light_height)) {
-		//TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas, out of data");
+		TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas, out of data");
+		loadmodel.lightOverflow = true;
 		return;
 	}
 
@@ -852,7 +1008,8 @@ static void putToAtlasTexture(int w, int h, int x, int y, int lightmapoffset)
 		for (int ix = x; ix < x+w; ix++) {
 			pixel = iy * loadmodel.light_width + ix;
 			if ((pixel+1) >= loadmodel.light_width*loadmodel.light_height || (lightmapoffset+1) >= loadmodel.num_lightdata) {
-				//TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas, something is off");
+				TraceLog(LOG_ERROR, "model_shared.c: failed to create light atlas, something is off");
+				loadmodel.lightOverflow = true;
 				return;
 			} else {
 				loadmodel.lightTexture[pixel*3] = loadmodel.lightdata[lightmapoffset++];
@@ -861,6 +1018,14 @@ static void putToAtlasTexture(int w, int h, int x, int y, int lightmapoffset)
 			}
 		}
 	}
+}
+
+int compareAtlases(const void* a, const void* b)
+{
+	const atlase_t* at = *(const atlase_t**)a;
+	const atlase_t* bt = *(const atlase_t**)b;
+
+	return (at->wy - bt->wy);
 }
 
 static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
@@ -872,24 +1037,45 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		PRINT("Mod_Q1BSP_LoadFaces: funny lump size in %s",loadmodel.name);
     count = sb->cursize / structsize;
 
-    totalverts = 0;
-	totaltris = 0;
-	for (surfacenum = 0;surfacenum < count;surfacenum++)
-	{
-		if (loadmodel.isbsp2)
-			numedges = BuffLittleLong(sb->data + structsize * surfacenum + 12);
-		else
-			numedges = BuffLittleShort(sb->data + structsize * surfacenum + 8);
-		totalverts += numedges;
-		totaltris += numedges - 2;
-	}
-
 	if (!loadmodel.num_textures) {
 		PRINT("Mod_Q1BSP_LoadFaces: no textures, so no meshes in %s", loadmodel.name);
 		loadmodel.mesh = NULL;
 	} else {
 		loadmodel.mesh = (mesh_t*)Hunk_AllocName(loadmodel.num_textures * sizeof(*loadmodel.mesh), "meshes");
 	}
+
+    totalverts = 0;
+	totaltris = 0;
+	for (surfacenum = 0;surfacenum < count;surfacenum++)
+	{
+		if (loadmodel.isbsp2) {
+			numedges = BuffLittleLong(sb->data + structsize * surfacenum + 12);
+			texinfoindex = BuffLittleLong(sb->data + structsize * surfacenum + 16);
+		}
+		else {
+			numedges = BuffLittleShort(sb->data + structsize * surfacenum + 8);
+			texinfoindex = BuffLittleShort(sb->data + structsize * surfacenum + 10);
+		}
+
+		if (texinfoindex >= loadmodel.numtexinfo)
+			PRINT("Mod_Q1BSP_LoadFaces: invalid texinfo range (texinfo index %i, numtexinfo %i)", texinfoindex, loadmodel.numtexinfo);
+		textureindex = loadmodel.texinfo[texinfoindex].textureindex;
+
+		loadmodel.mesh[textureindex].faceCount++;
+			
+		totalverts += numedges;
+		totaltris += numedges - 2;
+	}
+
+	for (i = 0; i < loadmodel.num_textures; i++) { 
+		if (loadmodel.mesh[i].faceCount) {
+			loadmodel.mesh[i].atlases = (atlase_t*)Hunk_AllocNameNoFill(loadmodel.mesh[i].faceCount*sizeof(atlase_t), "atlasesXY");
+		} else {
+			loadmodel.mesh[i].atlases = NULL;
+		}
+	}
+
+	
 		
 	sizebuf_t tempsb = *sb;
 
@@ -897,6 +1083,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
     
 	loadmodel.indices = (int*)Hunk_AllocNameNoFill(totaltris*3*4, "default hunk");
 	loadmodel.triangleCount = totaltris;
+
+	
 
     #define MAX_VERTICES_PER_FACE 64
     unsigned int verticesPerFace[MAX_VERTICES_PER_FACE];  
@@ -907,7 +1095,12 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	totaltris = 0;
 
 	
+	
+	int mark = Hunk_LowMark();
 
+	atlase_t** atindexes = (atlase_t**)Hunk_AllocNameNoFill(count*sizeof(atlase_t*), "atlas_indexes");
+
+	
 
     for (surfacenum = 0;surfacenum < count; surfacenum++)
 	{
@@ -920,13 +1113,17 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		texinfoindex = loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
 		for (i = 0;i < MAXLIGHTMAPS;i++)
 			/*surface->lightmapinfo->styles[i] = */MSG_ReadByte(sb);
-		lightmapoffset = MSG_ReadLittleLong(sb);
+		if (loadmodel.ishlbsp) {
+			lightmapoffset = MSG_ReadLittleLong(sb);
+		} else {
+			lightmapoffset = MSG_ReadLittleLong(sb)*3;
+		}
 
 
 		// FIXME: validate edges, texinfo, etc?
 		if ((unsigned int) firstedge > (unsigned int) loadmodel.numsurfedges || (unsigned int) numedges > (unsigned int) loadmodel.numsurfedges || (unsigned int) firstedge + (unsigned int) numedges > (unsigned int) loadmodel.numsurfedges)
 			PRINT("Mod_Q1BSP_LoadFaces: invalid edge range (firstedge %i, numedges %i, model edges %i)", firstedge, numedges, loadmodel.numsurfedges);
-		if (texinfoindex >= loadmodel.numtexinfo)
+			if (texinfoindex >= loadmodel.numtexinfo)
 			PRINT("Mod_Q1BSP_LoadFaces: invalid texinfo range (texinfo index %i, numtexinfo %i)", texinfoindex, loadmodel.numtexinfo);
 		textureindex = loadmodel.texinfo[texinfoindex].textureindex;
 
@@ -977,12 +1174,128 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.indices[triangleIndex*3+1] = verticesPerFace[i+2];
 		}
 
+
+
+		vec3 u_normal = (vec3){
+			loadmodel.texinfo[texinfoindex].vecs[0][0],
+			loadmodel.texinfo[texinfoindex].vecs[0][1],
+			loadmodel.texinfo[texinfoindex].vecs[0][2]
+		};
+
+		float u_offset = loadmodel.texinfo[texinfoindex].vecs[0][3];
+
+		vec3 v_normal = (vec3){
+			loadmodel.texinfo[texinfoindex].vecs[1][0],
+			loadmodel.texinfo[texinfoindex].vecs[1][1],
+			loadmodel.texinfo[texinfoindex].vecs[1][2]
+		};
+
+		float v_offset = loadmodel.texinfo[texinfoindex].vecs[1][3];
+
+		float ucoord = 0.0f;
+		float vcoord = 0.0f;
+
+		float max_ucoord = -FLT_MAX;
+		float max_vcoord = -FLT_MAX;
+
+		float min_ucoord = FLT_MAX;
+		float min_vcoord = FLT_MAX;
+
+		vec3 gp = (vec3){0};
+		for (i = 0; i < numedges; i++) {
+            gp.x = loadmodel.vertices[verticesPerFace[i]*3];
+			gp.y = loadmodel.vertices[verticesPerFace[i]*3+1];
+			gp.z = loadmodel.vertices[verticesPerFace[i]*3+2];
+
+			ucoord = (dot_product(swapyz(gp), u_normal)*INV_MULTI + u_offset);
+			vcoord = (dot_product(swapyz(gp), v_normal)*INV_MULTI + v_offset);
+
+			texcoordsPerFace[i*2] = ucoord;
+			texcoordsPerFace[i*2+1] = vcoord;
+
+			max_ucoord = (ucoord > max_ucoord) ? ucoord : max_ucoord;
+			max_vcoord = (vcoord > max_vcoord) ? vcoord : max_vcoord;
+			min_ucoord = (ucoord > min_ucoord) ? min_ucoord : ucoord;
+			min_vcoord = (vcoord > min_vcoord) ? min_vcoord : vcoord;
+                
+        }
+
+
+		int min_u_16 = (int)floorf(min_ucoord/16.0f);
+		int max_u_16 = (int)ceilf(max_ucoord/16.0f);
+		int min_v_16 = (int)floorf(min_vcoord/16.0f);
+		int max_v_16 = (int)ceilf(max_vcoord/16.0f);
+
+		int lm_w = (max_u_16 - min_u_16) + 1;
+		int lm_h = (max_v_16 - min_v_16) + 1;
+
+
+		int latlasX = 0;
+		int latlasY = 0;
+
+		if (lightmapoffset >= 0){
+			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wx = lm_w;
+			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wy = lm_h;
+		} else {
+			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wx = 0;
+			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wy = 0;
+		}
+
+		loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].offset = lightmapoffset;
+
+		atindexes[surfacenum] = &(loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface]);
+
+		loadmodel.mesh[textureindex].num_firstface++;
+
     }
 
 	*sb = tempsb; //restore pointers
 
+	qsort(atindexes, count, sizeof(atlase_t*), compareAtlases);
+
+	loadmodel.lightTexture = (unsigned char*)Hunk_AllocNameNoFill(LIGHTMAP_WIDTH*LIGHTMAP_HEIGHT*3, "lightatlas");
+	loadmodel.light_width = LIGHTMAP_WIDTH;
+	loadmodel.light_height = LIGHTMAP_HEIGHT;
+
+	lightmap_state lstate = (lightmap_state){.curh = 0, .mx = 0, .my = 0, .width = loadmodel.light_width, .height = loadmodel.light_height};
+
+	
+	atlase_t* temp = NULL;
+	int latlasX = 0;
+	int latlasY = 0;
+	for (surfacenum = 0; surfacenum < count; surfacenum++) {
+		temp = atindexes[surfacenum];
+		if (temp->wx){
+			putInAtlas(&lstate, temp->wx, temp->wy, &(temp->ax), &(temp->ay));
+			putToAtlasTexture(temp->wx, temp->wy, temp->ax, temp->ay, temp->offset);
+		}
+			
+	}
+
+	Image image = (Image){
+		.data = loadmodel.lightTexture,
+		.width = loadmodel.light_width,
+		.height = lstate.my + lstate.curh,
+		.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8,
+		.mipmaps = 1
+	};
+
+	Texture lightmapVRAM = LoadTextureFromImage(image);
+	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_TRILINEAR);
+	setTextureResource(lightmapVRAM, "\\light");
+
+	Hunk_FreeToLowMark(mark);
+	atindexes = NULL;
+	loadmodel.lightTexture = NULL;
+	loadmodel.light_width = 0;
+	loadmodel.light_height = 0;
+	
+
+	
+	//loadmodel.lightOverflow = true;
 
 	for (i = 0; i < loadmodel.num_textures; i++) { 
+		loadmodel.mesh[i].num_firstface = 0;
 		if (loadmodel.mesh[i].triangleCount) {
 			loadmodel.mesh[i].textureindex = i;
 			loadmodel.mesh[i].vertexCount = loadmodel.mesh[i].triangleCount*3;
@@ -993,11 +1306,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		}
 	}
 
-	loadmodel.lightTexture = (unsigned char*)Hunk_AllocName(LIGHTMAP_WIDTH*LIGHTMAP_HEIGHT*3, "lightatlas");
-	loadmodel.light_width = LIGHTMAP_WIDTH;
-	loadmodel.light_height = LIGHTMAP_HEIGHT;
-
-	lightmap_state lstate = (lightmap_state){.curh = 0, .mx = 0, .my = 0, .width = loadmodel.light_width, .height = loadmodel.light_height};
+	
 
 	
     totalverts = 0;
@@ -1095,8 +1404,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		float min_ucoord = FLT_MAX;
 		float min_vcoord = FLT_MAX;
 
-		float u_coord = 0.0f;
-		float v_coord = 0.0f;
 
 		vec3 gp = (vec3){0};
 		for (i = 0; i < numedges; i++) {
@@ -1139,11 +1446,15 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		int latlasX = 0;
 		int latlasY = 0;
 
-		if (lightmapoffset > 0){
-			putInAtlas(&lstate, lm_w, lm_h, &latlasX, &latlasY);
+		latlasX = loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].ax;
+		latlasY = loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].ay;
 
-			putToAtlasTexture(lm_w, lm_h, latlasX, latlasY, lightmapoffset);
-		}
+
+
+
+		
+
+		loadmodel.mesh[textureindex].num_firstface++;
 
 		vec3 p1 = (vec3){	
 			loadmodel.vertices[verticesPerFace[0]*3],
@@ -1200,7 +1511,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[0+1];
 
 			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)LIGHTMAP_HEIGHT;
+			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
 			
@@ -1216,7 +1527,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
 
 			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)LIGHTMAP_HEIGHT;
+			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
 
@@ -1232,7 +1543,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
 
 			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)LIGHTMAP_HEIGHT;
+			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
 
@@ -1249,17 +1560,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	loadmodel.meshCount = loadmodel.num_textures;
 
 
-	Image image = (Image){
-		.data = loadmodel.lightTexture,
-		.width = loadmodel.light_width,
-		.height = loadmodel.light_height,
-		.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8,
-		.mipmaps = 1
-	};
-
-	Texture lightmapVRAM = LoadTextureFromImage(image);
-	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_BILINEAR);
-	setTextureResource(lightmapVRAM, "\\light");
+	
 
 }
 
@@ -1291,6 +1592,7 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 		MSG_InitReadBuffer(&lumpsb[i], sb.data + offset, size);
 	}
     
+	Mod_Q1BSP_LoadEntities(&lumpsb[LUMP_ENTITIES]);
     Mod_Q1BSP_LoadVertexes(&lumpsb[LUMP_VERTEXES]);
 	Mod_Q1BSP_LoadEdges(&lumpsb[LUMP_EDGES]);
 	Mod_Q1BSP_LoadSurfedges(&lumpsb[LUMP_SURFEDGES]);
@@ -1304,12 +1606,9 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
     PRINT("num of edges %i", loadmodel.numedges);
     PRINT("num of surfedges %i", loadmodel.numsurfedges);
 	PRINT("num of textures %i", loadmodel.num_textures);
+	PRINT("num of vertices %i", loadmodel.vertexCount);
+	PRINT("light data %i", loadmodel.num_lightdata);
 
-
-
-
-    loadmodel.numedges = 0;
-    loadmodel.numsurfedges = 0;
     //free(loadmodel.edges);
     //free(loadmodel.surfedges);
 	//free(loadmodel.texinfo);

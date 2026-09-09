@@ -21,6 +21,12 @@
 
 
 
+#define FNV_32_OFFSET 2166136261
+#define FNV_32_PRIME 16777619
+
+
+
+
 
 void pg_update(struct Playground* self, EventHandler* eventhandler);
 
@@ -109,9 +115,7 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, Resource_k
 
 
 
-
-
-
+b3WorldId g_worldid = {0};
 
 b3Recording* recording = NULL;
 
@@ -129,8 +133,6 @@ void pg_init(struct Playground* self, int targetFPS)
 
 	self->bodyCount = 1;
 	self->objCount = 1;
-	self->textureCount = 1;
-	self->modelCount = 1;
 	self->springCount = 1;
 
 	self->elapsed = 0.0f;
@@ -139,57 +141,45 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->targetFPS = targetFPS;
 	self->targetDeltaTime = 1.0f / (float)self->targetFPS;
 
+	b3WorldDef worldDef = b3DefaultWorldDef();
+	worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
+	worldDef.enableContinuous = true;
+
+	g_worldid = b3CreateWorld(&worldDef);
+
 	self->worldId = g_worldid;
 
 	gc_init(&self->camera);
 
 
+	/*
+	Resource_key texkey2 = (Resource_key){ 0 };
 
-	self->basicShader = LoadShader(0, "");
-
-	int ti = self->objCount;
-	self->objects[ti].transform = MatrixIdentity();
-	self->objects[ti].rot = QuaternionIdentity();
-	self->objects[ti].pos = (Vector3){0.0f, 20.0f, -10.0f};
-	self->objects[ti].scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
-	self->objects[ti].alive = true; 
-	self->objects[ti].type = OBJ_NONE; 
-	self->objects[ti].parent = (Object*)0; 
-	self->objects[ti].physId = 0; 
-	self->objects[ti].onRemove = false;
-
-	self->objects[ti].update = (&ob_update);
-	self->objects[ti].updateMatrix = (&ob_updateMatrix);
-	self->objects[ti].draw = (&ob_draw);
-	self->objects[ti].setParent = (&ob_setParent);
-	self->objects[ti].texres = loadTextureResource("Bricks_06");
+	Resource_key modkey2 = (Resource_key){ 0 };
 	
-
-	self->objects[ti].modelres = setModelResource(LoadModelFromMesh(GenMeshCylinder(0.2f, 0.5f, 8)), "cylinder");
-
-	self->objects[ti].type = OBJ_OBSTACLE;
-	self->objects[ti].updateMatrix(&self->objects[ti]);
-	
+	int ti = pg_addObject(self, (Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 1.0f, 1.0f, 1.0f }, &texkey2, &modkey2, OBJ_NONE);
 
 	character_create(&self->objects[ti], &self->camera, self);
 
 	self->camera.setParent(&self->camera, &self->objects[ti]);
-	self->modelCount++;
-	self->objCount++;
-	
-
-	
-
-	
-
-	
-
-
 
 	Resource_key key =  (Resource_key){0};
 	Resource_key modelkey =  loadModelResource("\\map");
 
 	pg_addObject(self, (Vector3){0.0f, 0.0f, 0.0f}, (Vector3){1.0f,1.0f,1.0f}, &key, &modelkey, OBJ_NONE);
+
+	*/
+	
+
+	
+
+	
+
+	
+
+
+
+	
 
 	
 
@@ -225,7 +215,6 @@ void pg_update(struct Playground* self, EventHandler* eventhandler)
 void pg_render(struct Playground* self, WindowHandler* windowhandler)
 {
 	((CameraData*)self->camera.data)->startFrame(&self->camera);
-	BeginShaderMode(self->basicShader);
 
 
 	for (int i = 1; i <= self->objCount; i++) {
@@ -257,7 +246,9 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 
 	//Resource_key key = loadTextureResource("\\light");
 
-	//DrawTextureRec(getTextureResource(&key), (Rectangle){0, 0, 500, 500}, (Vector2){0, 0}, WHITE);
+	//Texture tex = getTextureResource(&key);
+
+	//DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.5f*1024.0f/(float)tex.width), WHITE);
 
 }
 
@@ -270,7 +261,5 @@ void pg_cleanUp(struct Playground* self)
 	//b3SaveRecordingToFile( recording, "session.b3rec" ); 
 	//b3DestroyRecording( recording );
 	
-
-	UnloadShader(self->basicShader);
 
 }
