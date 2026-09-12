@@ -15,13 +15,14 @@
 #include "MapLoader.h"
 #include "Playground.h"
 #include "Zone.h"
+#include "G_local.h"
 
 #define RESOURCES_SIZE 2048
 
 #define MAP_USAGE 2
 
 
-
+model_t g_mapModel = {0};
 
 Shader lightmap_shader = {0};
 
@@ -44,6 +45,7 @@ typedef struct {
 
 static Resource resources[RESOURCES_SIZE] = {0};
 
+/*
 Model LoadModelFromModel_t(model_t* mt)
 {
 	int numofmeshes = 0;
@@ -120,7 +122,7 @@ Model LoadModelFromModel_t(model_t* mt)
             } else {
                 key = loadTextureResource(mt->data_textures[i].name);
                 
-                if (mt->data_textures[i].name[0] = '{') {
+                if (mt->data_textures[i].name[0] == '{') {
                     model.materials[j].shader = discard_shader;
                 } else {
                     model.materials[j].shader = lightmap_shader;
@@ -141,17 +143,137 @@ Model LoadModelFromModel_t(model_t* mt)
 
 
     return model;
+}*/
+
+void loadSubModelsToResource(model_t* mt)
+{
+    int beforemark = Hunk_LowMark();
+
+    typedef struct {
+        int mesh_idx;
+        int num_vertices;
+    } VertPerTexture;
+
+    mesh_t* basemesh = mt->mesh;
+    Resource_key texkey = {0};
+
+
+    for (int smid = 0; smid < mt->numsubmodels; smid++) {
+        mmodel_t* sm = mt->submodels + smid;
+
+        Model md = {0};
+
+        
+
+        md.transform = MatrixIdentity();
+        
+
+        msurface_t* surface;
+        int i;
+
+        int numvertices = 0;
+
+        VertPerTexture* vpt = (VertPerTexture*)Hunk_Alloc(mt->num_textures*sizeof(VertPerTexture));
+
+        int numusedtextures = 0;
+
+        for (i = 0, surface = mt->data_surfaces+sm->firstface; i < sm->numfaces; i++, surface++) {
+            if (vpt[surface->tex_idx].num_vertices == 0 && surface->num_vertices){
+                numusedtextures++;
+            }
+            vpt[surface->tex_idx].num_vertices += surface->num_vertices;
+        }
+
+        Mesh* meshes = (Mesh*)RL_CALLOC(numusedtextures, sizeof(Mesh));   
+
+        md.meshCount = numusedtextures;
+        md.meshes = meshes;
+        md.materialCount = numusedtextures;
+        md.materials = (Material*)RL_CALLOC(numusedtextures, sizeof(Material));
+        md.meshMaterial = (int*)RL_CALLOC(numusedtextures, sizeof(int));
+
+        int j = 0;
+        for (i = 0; i < mt->num_textures; i++) {
+            if (vpt[i].num_vertices)  {
+                vpt[i].mesh_idx = j;
+                meshes[j].vertices = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*3*sizeof(float));
+                meshes[j].texcoords = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*2*sizeof(float));
+                meshes[j].texcoords2 = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*2*sizeof(float));
+                //meshes[0].vertices = (float*)Hunk_AllocNoFill(numvertices*3*sizeof(float));
+                meshes[j].vertexCount = 0;
+                meshes[j].triangleCount = vpt[i].num_vertices/3;
+
+                md.materials[j] = LoadMaterialDefault();
+        
+                md.meshMaterial[j] = j;
+
+                if (mt->data_textures[i].type == TEXTYPE_SKY) {
+                    md.materials[j].shader = skybox_shader;
+                    texkey = loadTextureResource("\\sky");
+                    md.materials[j].maps[MATERIAL_MAP_CUBEMAP].texture = getTextureResource(&texkey);
+                } else {
+                    md.materials[j].shader = lightmap_shader; 
+                    texkey = loadTextureResource(mt->data_textures[i].name);
+                    md.materials[j].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&texkey);
+                    texkey = loadTextureResource("\\light");
+                    md.materials[j].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&texkey);
+                }
+                j++;
+            }
+        }
+
+        int firstvert = 0;
+        int mesh_idx = 0;
+        
+        for (i = 0, surface = mt->data_surfaces+sm->firstface; i < sm->numfaces; i++, surface++) {
+            mesh_idx = vpt[surface->tex_idx].mesh_idx;
+            firstvert = meshes[mesh_idx].vertexCount;
+            memcpy(meshes[mesh_idx].vertices+firstvert*3, basemesh->vertices + surface->num_firstvertex*3, surface->num_vertices*3*sizeof(float) );
+            memcpy(meshes[mesh_idx].texcoords+firstvert*2, basemesh->texcoords + surface->num_firstvertex*2, surface->num_vertices*2*sizeof(float) );
+            memcpy(meshes[mesh_idx].texcoords2+firstvert*2, basemesh->texcoords2 + surface->num_firstvertex*2, surface->num_vertices*2*sizeof(float) );
+            meshes[mesh_idx].vertexCount += surface->num_vertices;
+        }
+
+        for (i = 0;i < numusedtextures; i++) {
+            UploadMesh(meshes+i, false);
+            meshes[i].vertices = NULL;
+            meshes[i].texcoords = NULL;
+            meshes[i].texcoords2 = NULL;
+        }
+
+        Hunk_FreeToLowMark(beforemark);
+
+        Resource_key mapkey;
+
+        if (smid == 0) {
+            mapkey = setModelResource(md,"\\map");
+            
+        } else {
+            mapkey = setModelResource(md,TextFormat("*%i", smid));
+        }
+        
+        setUsageResource(&mapkey, MAP_USAGE);
+
+        
+
+
+
+    }
+
 }
 
 void loadMapResource(const char* mapname)
 {
     model_t mapMod = loadMyMap(mapname);
-
+    g_mapModel = mapMod;
 	
-	Model mapModel = LoadModelFromModel_t(&mapMod);
-    Resource_key mapkey = setModelResource(mapModel,"\\map");
+	//Model mapModel = LoadModelFromModel_t(&mapMod);
+    //Model mapModel = {0};
+    //Resource_key mapkey = setModelResource(mapModel,"\\map");
 
-    setUsageResource(&mapkey, MAP_USAGE);
+    loadSubModelsToResource(&mapMod);
+
+    //setUsageResource(&mapkey, MAP_USAGE);
 
     b3MeshDef def = {0};
 	def.vertices      = (b3Vec3*)mapMod.vertices;
@@ -220,6 +342,7 @@ void initResources()
     setTextureResource(LoadTextureCubemap(image, CUBEMAP_LAYOUT_AUTO_DETECT), "\\sky");
     UnloadImage(image);
 
+    
     loadMapResource("res/qbj3_radiatoryang.bsp");
     
 

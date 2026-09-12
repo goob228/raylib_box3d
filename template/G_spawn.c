@@ -81,8 +81,8 @@ void SP_worldspawn()
 	if (!g_playground) return;
 	Resource_key texkey = (Resource_key){0};
 	Resource_key modkey = loadModelResource("\\map");
-	int obid = g_playground->addObject(g_playground, (Vector3){0.0f, 0.0f, 0.0f}, (Vector3){1.0f, 1.0f, 1.0f}, &texkey, &modkey, OBJ_NONE );
-
+	int obid = pg_addObject(g_playground, (Vector3){0.0f, 0.0f, 0.0f}, (Vector3){1.0f, 1.0f, 1.0f}, &texkey, &modkey, OBJ_NONE );
+	map_create(objects+obid);
 	
 }
 
@@ -96,23 +96,59 @@ void SP_info_player_start()
 	float angle = 0.0f;
 	G_SpawnVector("origin", "0 0 0", pos);
 	G_SpawnFloat("angle", "0", &angle);
-	int obid = g_playground->addObject(g_playground, (Vector3){-pos[0]*MULTIPLIER, pos[2]*MULTIPLIER, pos[1]*MULTIPLIER}, (Vector3){0.0f, 0.0f, 0.0f}, &key, &key, OBJ_NONE );
-	Object* ob = &(g_playground->objects[obid]);
-	character_create(ob, &g_playground->camera, g_playground);
+	int obid = pg_addObject(g_playground, (Vector3){-pos[0]*MULTIPLIER, pos[2]*MULTIPLIER, pos[1]*MULTIPLIER}, (Vector3){0.0f, 0.0f, 0.0f}, &key, &key, OBJ_NONE );
+	Object* ob = &(objects[obid]);
+	character_create(ob, &camera, g_playground);
 
-	g_playground->camera.setParent(&g_playground->camera, ob);
-	CameraData* camdata = (CameraData*)g_playground->camera.data;
+	camera.setParent(&camera, ob);
+	CameraData* camdata = (CameraData*)camera.data;
 
 	camdata->yaw = (270.0f - angle)*DEG2RAD;
 	
 }
 
 
+void SP_trigger_always()
+{
+	if (!g_playground) return;
+	Resource_key texkey = (Resource_key){0};
+	char* modelname = NULL;
+	if (!G_SpawnString("model", "*1", &modelname)) return;// FIXME
+	Resource_key modkey = loadModelResource(modelname);
+	if (modkey.id == 0) return;
+	int obid = pg_addObject(g_playground, (Vector3){0.0f, 0.0f, 0.0f}, (Vector3){1.0f, 1.0f, 1.0f}, &texkey, &modkey, OBJ_NONE );
+	if (obid == 128) {
+		
+	}
+	map_create(objects+obid);
+}
+
 spawn_t	spawns[] = {
 	// info entities don't do anything at all, but provide positional
 	// information for things controlled by other processes
 	{"worldspawn", SP_worldspawn},
 	{"info_player_start", SP_info_player_start},
+
+
+	{"func_plat", SP_trigger_always},
+	{"func_button", SP_trigger_always},
+	{"func_door", SP_trigger_always},
+	{"func_static", SP_trigger_always},
+	{"func_wall", SP_trigger_always},
+	{"func_illusionary", SP_trigger_always},
+	{"func_rotating", SP_trigger_always},
+	{"func_bobbing", SP_trigger_always},
+	{"func_pendulum", SP_trigger_always},
+	{"func_train", SP_trigger_always},
+	{"func_group", SP_trigger_always},
+	{"func_timer", SP_trigger_always},	
+	{"func_detail", SP_trigger_always},	
+
+	{"trigger_always", SP_trigger_always},
+	{"trigger_multiple", SP_trigger_always},
+	{"trigger_push", SP_trigger_always},
+	{"trigger_teleport", SP_trigger_always},
+	{"trigger_hurt", SP_trigger_always},
 	
 
 	{0, 0}
@@ -125,10 +161,14 @@ void G_CallSpawn()
 
 	if (!G_SpawnString("classname", NULL, &classname)) return;
 
+
 	for (spawn_t* s = spawns; s->name; s++) {
 		if (!strcmp(s->name, classname)) {
 			s->spawn();
+			return;
 		}
 	}
+
+	
 
 }

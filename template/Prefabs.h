@@ -120,4 +120,6 @@ void car_update(Object* self, Playground* playground);
 
 Object* character_create(Object* object, Object* camera, Playground* playground);
 
+Object* map_create(Object* object);
+
 #endif

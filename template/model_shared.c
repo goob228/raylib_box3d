@@ -10,10 +10,9 @@
 
 #include <raylib.h>
 
-#include "Resource.h"
 #include "Zone.h"
 #include "G_local.h"
-
+#include "Resource.h"
 
 #define PRINT(val, ...) TraceLog(LOG_WARNING, "model_shared.c: " val, ##__VA_ARGS__)
 
@@ -838,7 +837,7 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			Texture texture = LoadTextureFromImage(image);
 			GenTextureMipmaps(&texture);
 			SetTextureFilter(texture, TEXTURE_FILTER_TRILINEAR);
-			Resource_key key =  setTextureResource(texture, model_shared_texture_name);
+			Resource_key key = setTextureResource(texture, model_shared_texture_name);
 
 		}
 
@@ -959,6 +958,49 @@ static void Mod_Q1BSP_LoadLighting(sizebuf_t *sb)
 	}
 }
 
+void PlaneClassify(mplane_t *p)
+{
+	// for optimized plane comparisons
+	if (p->normal[0] == 1)
+		p->type = 0;
+	else if (p->normal[1] == 1)
+		p->type = 1;
+	else if (p->normal[2] == 1)
+		p->type = 2;
+	else
+		p->type = 3;
+	// for BoxOnPlaneSide
+	p->signbits = 0;
+	if (p->normal[0] < 0) // 1
+		p->signbits |= 1;
+	if (p->normal[1] < 0) // 2
+		p->signbits |= 2;
+	if (p->normal[2] < 0) // 4
+		p->signbits |= 4;
+}
+
+static void Mod_Q1BSP_LoadPlanes(sizebuf_t *sb)
+{
+	int			i;
+	mplane_t	*out;
+	int structsize = 20;
+
+	if (sb->cursize % structsize)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadPlanes: funny lump size in %s", loadmodel.name);
+	loadmodel.num_planes = sb->cursize / structsize;
+	loadmodel.data_planes = out = (mplane_t *)Hunk_AllocNameNoFill(loadmodel.num_planes * sizeof(*out), "mplane_t");
+
+	for (i = 0;i < loadmodel.num_planes;i++, out++)
+	{
+		out->normal[0] = MSG_ReadLittleFloat(sb);
+		out->normal[1] = MSG_ReadLittleFloat(sb);
+		out->normal[2] = MSG_ReadLittleFloat(sb);
+		out->dist = MSG_ReadLittleFloat(sb);
+		MSG_ReadLittleLong(sb); // type is not used, we use PlaneClassify
+		PlaneClassify(out);
+	}
+}
+
 
 static void putInAtlas(lightmap_state* lstate, int w, int h, int* latlasX, int* latlasY)
 {
@@ -1037,12 +1079,15 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		PRINT("Mod_Q1BSP_LoadFaces: funny lump size in %s",loadmodel.name);
     count = sb->cursize / structsize;
 
-	if (!loadmodel.num_textures) {
-		PRINT("Mod_Q1BSP_LoadFaces: no textures, so no meshes in %s", loadmodel.name);
-		loadmodel.mesh = NULL;
-	} else {
-		loadmodel.mesh = (mesh_t*)Hunk_AllocName(loadmodel.num_textures * sizeof(*loadmodel.mesh), "meshes");
-	}
+	
+	loadmodel.mesh = (mesh_t*)Hunk_AllocName(sizeof(*loadmodel.mesh), "mesh");
+	loadmodel.meshCount = 1;
+
+	loadmodel.num_surfaces = count;
+
+	loadmodel.data_surfaces = (msurface_t *)Hunk_AllocName(loadmodel.num_surfaces*sizeof(msurface_t), "surfaces");
+
+	
 
     totalverts = 0;
 	totaltris = 0;
@@ -1061,18 +1106,16 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			PRINT("Mod_Q1BSP_LoadFaces: invalid texinfo range (texinfo index %i, numtexinfo %i)", texinfoindex, loadmodel.numtexinfo);
 		textureindex = loadmodel.texinfo[texinfoindex].textureindex;
 
-		loadmodel.mesh[textureindex].faceCount++;
+		loadmodel.mesh[0].faceCount++;
 			
 		totalverts += numedges;
 		totaltris += numedges - 2;
 	}
 
-	for (i = 0; i < loadmodel.num_textures; i++) { 
-		if (loadmodel.mesh[i].faceCount) {
-			loadmodel.mesh[i].atlases = (atlase_t*)Hunk_AllocNameNoFill(loadmodel.mesh[i].faceCount*sizeof(atlase_t), "atlasesXY");
-		} else {
-			loadmodel.mesh[i].atlases = NULL;
-		}
+	if (loadmodel.mesh[0].faceCount) {
+		loadmodel.mesh[0].atlases = (atlase_t*)Hunk_AllocNameNoFill(loadmodel.mesh[0].faceCount*sizeof(atlase_t), "atlasesXY");
+	} else {
+		loadmodel.mesh[0].atlases = NULL;
 	}
 
 	
@@ -1081,7 +1124,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 
     
-	loadmodel.indices = (int*)Hunk_AllocNameNoFill(totaltris*3*4, "default hunk");
+	loadmodel.indices = (int*)Hunk_AllocNameNoFill(totaltris*3*sizeof(int), "default hunk");
 	loadmodel.triangleCount = totaltris;
 
 	
@@ -1137,7 +1180,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
         int num_firsttriangle = totaltris;
         int num_triangles = numedges - 2;
 
-		loadmodel.mesh[textureindex].triangleCount += num_triangles;
+		loadmodel.mesh[0].triangleCount += num_triangles;
 		
 
         totalverts += numedges;
@@ -1234,18 +1277,18 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		int latlasY = 0;
 
 		if (lightmapoffset >= 0){
-			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wx = lm_w;
-			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wy = lm_h;
+			loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].wx = lm_w;
+			loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].wy = lm_h;
 		} else {
-			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wx = 0;
-			loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].wy = 0;
+			loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].wx = 0;
+			loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].wy = 0;
 		}
 
-		loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].offset = lightmapoffset;
+		loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].offset = lightmapoffset;
 
-		atindexes[surfacenum] = &(loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface]);
+		atindexes[surfacenum] = &(loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface]);
 
-		loadmodel.mesh[textureindex].num_firstface++;
+		loadmodel.mesh[0].num_firstface++;
 
     }
 
@@ -1294,16 +1337,13 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	
 	//loadmodel.lightOverflow = true;
 
-	for (i = 0; i < loadmodel.num_textures; i++) { 
-		loadmodel.mesh[i].num_firstface = 0;
-		if (loadmodel.mesh[i].triangleCount) {
-			loadmodel.mesh[i].textureindex = i;
-			loadmodel.mesh[i].vertexCount = loadmodel.mesh[i].triangleCount*3;
-			loadmodel.mesh[i].vertices = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[i].vertexCount*3*4, "vertices");
-			loadmodel.mesh[i].normals = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[i].vertexCount*3*4, "normals");
-			loadmodel.mesh[i].texcoords = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[i].vertexCount*2*4, "texcoords");
-			loadmodel.mesh[i].texcoords2 = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[i].vertexCount*2*4, "texcoords2");
-		}
+	loadmodel.mesh[0].num_firstface = 0;
+	if (loadmodel.mesh[0].triangleCount) {
+		loadmodel.mesh[0].vertexCount = loadmodel.mesh[0].triangleCount*3;
+		loadmodel.mesh[0].vertices = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*3*4, "vertices");
+		loadmodel.mesh[0].normals = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*3*4, "normals");
+		loadmodel.mesh[0].texcoords = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*2*4, "texcoords");
+		loadmodel.mesh[0].texcoords2 = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*2*4, "texcoords2");
 	}
 
 	
@@ -1317,7 +1357,9 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	float inv_texWidth = 0.0f;
 	float inv_texHeight = 0.0f;
 
-    for (surfacenum = 0;surfacenum < count; surfacenum++)
+	msurface_t *surface;
+
+    for (surfacenum = 0, surface = loadmodel.data_surfaces;surfacenum < count; surfacenum++, surface++)
 	{
 
 		// the struct on disk is the same in BSP29 (Q1), BSP30 (HL1), and IBSP38 (Q2)
@@ -1446,15 +1488,15 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		int latlasX = 0;
 		int latlasY = 0;
 
-		latlasX = loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].ax;
-		latlasY = loadmodel.mesh[textureindex].atlases[loadmodel.mesh[textureindex].num_firstface].ay;
+		latlasX = loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].ax;
+		latlasY = loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].ay;
 
 
 
 
 		
 
-		loadmodel.mesh[textureindex].num_firstface++;
+		loadmodel.mesh[0].num_firstface++;
 
 		vec3 p1 = (vec3){	
 			loadmodel.vertices[verticesPerFace[0]*3],
@@ -1478,7 +1520,12 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 		
 
-		
+		surface->tex_idx = textureindex;
+		surface->num_firsttriangle = loadmodel.mesh[0].num_firsttriangle;
+		surface->num_firstvertex = loadmodel.mesh[0].num_firstvertex;
+		surface->num_triangles = num_triangles;
+		surface->num_vertices = num_triangles*3;
+		surface->included = false;
 
 		int triangleIndex = 0;
 
@@ -1488,8 +1535,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
         for (i = 0;i < num_triangles;i++)
 		{
-			triangleIndex = loadmodel.mesh[textureindex].num_firsttriangle+i;
-			idx = loadmodel.mesh[textureindex].num_firstvertex;
+			triangleIndex = loadmodel.mesh[0].num_firsttriangle+i;
+			idx = loadmodel.mesh[0].num_firstvertex;
 
 			p3.x = loadmodel.vertices[verticesPerFace[i+1]*3];
 			p3.y = loadmodel.vertices[verticesPerFace[i+1]*3+1];
@@ -1499,81 +1546,344 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			p2.y = loadmodel.vertices[verticesPerFace[i+2]*3+1];
 			p2.z = loadmodel.vertices[verticesPerFace[i+2]*3+2];
 
-            loadmodel.mesh[textureindex].vertices[idx*3] = p1.x;
-            loadmodel.mesh[textureindex].vertices[idx*3+1] = p1.y;
-            loadmodel.mesh[textureindex].vertices[idx*3+2] = p1.z;
+            loadmodel.mesh[0].vertices[idx*3] = p1.x;
+            loadmodel.mesh[0].vertices[idx*3+1] = p1.y;
+            loadmodel.mesh[0].vertices[idx*3+2] = p1.z;
 
-			loadmodel.mesh[textureindex].normals[idx*3] = normal.x;
-			loadmodel.mesh[textureindex].normals[idx*3+1] = normal.y;
-			loadmodel.mesh[textureindex].normals[idx*3+2] = normal.z;
+			loadmodel.mesh[0].normals[idx*3] = normal.x;
+			loadmodel.mesh[0].normals[idx*3+1] = normal.y;
+			loadmodel.mesh[0].normals[idx*3+2] = normal.z;
 
-			loadmodel.mesh[textureindex].texcoords[idx*2+0] = texcoordsPerFace[0];
-			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[0+1];
+			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[0];
+			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[0+1];
 
-			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
 			
-            loadmodel.mesh[textureindex].vertices[idx*3] = p2.x;
-            loadmodel.mesh[textureindex].vertices[idx*3+1] = p2.y;
-            loadmodel.mesh[textureindex].vertices[idx*3+2] = p2.z;
+            loadmodel.mesh[0].vertices[idx*3] = p2.x;
+            loadmodel.mesh[0].vertices[idx*3+1] = p2.y;
+            loadmodel.mesh[0].vertices[idx*3+2] = p2.z;
 
-			loadmodel.mesh[textureindex].normals[idx*3] = normal.x;
-            loadmodel.mesh[textureindex].normals[idx*3+1] = normal.y;
-            loadmodel.mesh[textureindex].normals[idx*3+2] = normal.z;
+			loadmodel.mesh[0].normals[idx*3] = normal.x;
+            loadmodel.mesh[0].normals[idx*3+1] = normal.y;
+            loadmodel.mesh[0].normals[idx*3+2] = normal.z;
 
-			loadmodel.mesh[textureindex].texcoords[idx*2+0] = texcoordsPerFace[(i+2)*2];
-			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
+			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+2)*2];
+			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
 
-			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
-
-			idx++;
-
-            loadmodel.mesh[textureindex].vertices[idx*3] = p3.x;
-            loadmodel.mesh[textureindex].vertices[idx*3+1] = p3.y;
-            loadmodel.mesh[textureindex].vertices[idx*3+2] = p3.z;
-
-            loadmodel.mesh[textureindex].normals[idx*3] = normal.x;
-            loadmodel.mesh[textureindex].normals[idx*3+1] = normal.y;
-            loadmodel.mesh[textureindex].normals[idx*3+2] = normal.z;
-
-			loadmodel.mesh[textureindex].texcoords[idx*2+0] = texcoordsPerFace[(i+1)*2];
-			loadmodel.mesh[textureindex].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
-
-			loadmodel.mesh[textureindex].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
-			loadmodel.mesh[textureindex].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
 
-			loadmodel.mesh[textureindex].num_firstvertex = idx;
+            loadmodel.mesh[0].vertices[idx*3] = p3.x;
+            loadmodel.mesh[0].vertices[idx*3+1] = p3.y;
+            loadmodel.mesh[0].vertices[idx*3+2] = p3.z;
+
+            loadmodel.mesh[0].normals[idx*3] = normal.x;
+            loadmodel.mesh[0].normals[idx*3+1] = normal.y;
+            loadmodel.mesh[0].normals[idx*3+2] = normal.z;
+
+			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+1)*2];
+			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
+
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+
+			idx++;
+
+			loadmodel.mesh[0].num_firstvertex = idx;
 			
 
 
 		}
 
-		loadmodel.mesh[textureindex].num_firsttriangle += num_triangles;
+		loadmodel.mesh[0].num_firsttriangle += num_triangles;
 
     }
 
-	loadmodel.meshCount = loadmodel.num_textures;
 
-
-	
 
 }
 
+static void Mod_Q1BSP_LoadLeaffaces(sizebuf_t *sb)
+{
+	int i, j;
+	int structsize = loadmodel.isbsp2 ? 4 : 2;
+
+	if (sb->cursize % structsize)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: funny lump size in %s",loadmodel.name);
+	loadmodel.num_leafsurfaces = sb->cursize / structsize;
+	loadmodel.data_leafsurfaces = (int *)Hunk_AllocNameNoFill(loadmodel.num_leafsurfaces * sizeof(int), "leaf faces");
+
+	if (loadmodel.isbsp2)
+	{
+		for (i = 0;i < loadmodel.num_leafsurfaces;i++)
+		{
+			j = MSG_ReadLittleLong(sb);
+			if (j < 0 || j >= loadmodel.num_surfaces)
+				TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: bad surface number");
+			loadmodel.data_leafsurfaces[i] = j;
+		}
+	}
+	else
+	{
+		for (i = 0;i < loadmodel.num_leafsurfaces;i++)
+		{
+			j = (unsigned short) MSG_ReadLittleShort(sb);
+			if (j >= loadmodel.num_surfaces)
+				TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: bad surface number");
+			loadmodel.data_leafsurfaces[i] = j;
+		}
+	}
+}
+
+static void Mod_Q1BSP_LoadVisibility(sizebuf_t *sb)
+{
+	loadmodel.num_compressedpvs = 0;
+	loadmodel.data_compressedpvs = NULL;
+	if (!sb->cursize)
+		return;
+	loadmodel.num_compressedpvs = sb->cursize;
+	loadmodel.data_compressedpvs = (unsigned char *)Hunk_AllocNameNoFill(sb->cursize, "visibility");
+	MSG_ReadBytes(sb, sb->cursize, loadmodel.data_compressedpvs);
+}
+
+static void Mod_BSP_LoadSubmodels(sizebuf_t *sb, hullinfo_t *hullinfo)
+{
+	mmodel_t	*out;
+	int			i, j, count;
+	int			structsize = hullinfo ? (48+4*hullinfo->filehulls) : 48;
+
+	if (sb->cursize % structsize)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_BSP_LoadSubmodels: funny lump size in %s", loadmodel.name);
+
+	count = sb->cursize / structsize;
+	out = (mmodel_t *)Hunk_Alloc(count*sizeof(*out));
+
+	loadmodel.submodels = out;
+	loadmodel.numsubmodels = count;
+
+	for (i = 0; i < count; i++, out++)
+	{
+	// spread out the mins / maxs by a pixel
+		out->mins[0] = MSG_ReadLittleFloat(sb) - 1;
+		out->mins[1] = MSG_ReadLittleFloat(sb) - 1;
+		out->mins[2] = MSG_ReadLittleFloat(sb) - 1;
+		out->maxs[0] = MSG_ReadLittleFloat(sb) + 1;
+		out->maxs[1] = MSG_ReadLittleFloat(sb) + 1;
+		out->maxs[2] = MSG_ReadLittleFloat(sb) + 1;
+		out->origin[0] = MSG_ReadLittleFloat(sb);
+		out->origin[1] = MSG_ReadLittleFloat(sb);
+		out->origin[2] = MSG_ReadLittleFloat(sb);
+		if(hullinfo)
+		{
+			for (j = 0; j < hullinfo->filehulls; j++)
+				out->headnode[j] = MSG_ReadLittleLong(sb);
+			out->visleafs  = MSG_ReadLittleLong(sb);
+		}
+		else // Quake 2 has only one hull
+			out->headnode[0] = MSG_ReadLittleLong(sb);
+
+		out->firstface = MSG_ReadLittleLong(sb);
+		out->numfaces  = MSG_ReadLittleLong(sb);
+	}
+}
+
+static void Mod_Q1BSP_LoadLeafs(sizebuf_t *sb)
+{
+	mleaf_t *out;
+	int i, j, count, p, firstmarksurface, nummarksurfaces;
+	int structsize = loadmodel.isbsp2rmqe ? 32 : (loadmodel.isbsp2 ? 44 : 28);
+
+	if (sb->cursize % structsize)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeafs: funny lump size in %s",loadmodel.name);
+	count = sb->cursize / structsize;
+	out = (mleaf_t *)Hunk_AllocName(count*sizeof(*out), "leafs");
+
+	loadmodel.data_leafs = out;
+	loadmodel.num_leafs = count;
 
 
+	// FIXME: this function could really benefit from some error checking
+	for ( i=0 ; i<count ; i++, out++)
+	{
+		out->contents = MSG_ReadLittleLong(sb);
+		out->combinedsupercontents = out->contents;
+
+		p = MSG_ReadLittleLong(sb);
+		out->clusterindex = p; 
+
+		if (loadmodel.isbsp2rmqe)
+		{
+			out->mins[0] = MSG_ReadLittleShort(sb);
+			out->mins[1] = MSG_ReadLittleShort(sb);
+			out->mins[2] = MSG_ReadLittleShort(sb);
+			out->maxs[0] = MSG_ReadLittleShort(sb);
+			out->maxs[1] = MSG_ReadLittleShort(sb);
+			out->maxs[2] = MSG_ReadLittleShort(sb);
+	
+			firstmarksurface = MSG_ReadLittleLong(sb);
+			nummarksurfaces = MSG_ReadLittleLong(sb);
+		}
+		else if (loadmodel.isbsp2)
+		{
+			out->mins[0] = MSG_ReadLittleFloat(sb);
+			out->mins[1] = MSG_ReadLittleFloat(sb);
+			out->mins[2] = MSG_ReadLittleFloat(sb);
+			out->maxs[0] = MSG_ReadLittleFloat(sb);
+			out->maxs[1] = MSG_ReadLittleFloat(sb);
+			out->maxs[2] = MSG_ReadLittleFloat(sb);
+	
+			firstmarksurface = MSG_ReadLittleLong(sb);
+			nummarksurfaces = MSG_ReadLittleLong(sb);
+		}
+		else
+		{
+			out->mins[0] = MSG_ReadLittleShort(sb);
+			out->mins[1] = MSG_ReadLittleShort(sb);
+			out->mins[2] = MSG_ReadLittleShort(sb);
+			out->maxs[0] = MSG_ReadLittleShort(sb);
+			out->maxs[1] = MSG_ReadLittleShort(sb);
+			out->maxs[2] = MSG_ReadLittleShort(sb);
+	
+			firstmarksurface = (unsigned short)MSG_ReadLittleShort(sb);
+			nummarksurfaces  = (unsigned short)MSG_ReadLittleShort(sb);
+		}
+
+		if (firstmarksurface >= 0 && firstmarksurface + nummarksurfaces <= loadmodel.num_leafsurfaces)
+		{
+			out->firstleafsurface = loadmodel.data_leafsurfaces + firstmarksurface;
+			out->numleafsurfaces = nummarksurfaces;
+		}
+		else
+		{
+			TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeafs: invalid leafsurface range %i:%i outside range %i:%i\n", firstmarksurface, firstmarksurface+nummarksurfaces, 0, loadmodel.num_leafsurfaces);
+			out->firstleafsurface = NULL;
+			out->numleafsurfaces = 0;
+		}
+
+		for (j = 0;j < 4;j++)
+			out->ambient_sound_level[j] = MSG_ReadByte(sb);
+	}
+}
+
+static void Mod_Q1BSP_LoadNodes(sizebuf_t *sb)
+{
+	int			i, j, count, p, child[2];
+	mnode_t 	*out;
+	int structsize = loadmodel.isbsp2rmqe ? 32 : (loadmodel.isbsp2 ? 44 : 24);
+
+	if (sb->cursize % structsize)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadNodes: funny lump size in %s",loadmodel.name);
+	count = sb->cursize / structsize;
+	if (count == 0)
+		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadNodes: missing BSP tree in %s",loadmodel.name);
+	out = (mnode_t *)Hunk_AllocName(count*sizeof(*out), "nodes");
+
+	loadmodel.data_nodes = out;
+	loadmodel.num_nodes = count;
+
+	for ( i=0 ; i<count ; i++, out++)
+	{
+		p = MSG_ReadLittleLong(sb);
+		out->plane = loadmodel.data_planes + p;
+
+		if (loadmodel.isbsp2rmqe)
+		{
+			child[0] = MSG_ReadLittleLong(sb);
+			child[1] = MSG_ReadLittleLong(sb);
+			out->mins[0] = MSG_ReadLittleShort(sb);
+			out->mins[1] = MSG_ReadLittleShort(sb);
+			out->mins[2] = MSG_ReadLittleShort(sb);
+			out->maxs[0] = MSG_ReadLittleShort(sb);
+			out->maxs[1] = MSG_ReadLittleShort(sb);
+			out->maxs[2] = MSG_ReadLittleShort(sb);
+			out->firstsurface = MSG_ReadLittleLong(sb);
+			out->numsurfaces = MSG_ReadLittleLong(sb);
+		}
+		else if (loadmodel.isbsp2)
+		{
+			child[0] = MSG_ReadLittleLong(sb);
+			child[1] = MSG_ReadLittleLong(sb);
+			out->mins[0] = MSG_ReadLittleFloat(sb);
+			out->mins[1] = MSG_ReadLittleFloat(sb);
+			out->mins[2] = MSG_ReadLittleFloat(sb);
+			out->maxs[0] = MSG_ReadLittleFloat(sb);
+			out->maxs[1] = MSG_ReadLittleFloat(sb);
+			out->maxs[2] = MSG_ReadLittleFloat(sb);
+			out->firstsurface = MSG_ReadLittleLong(sb);
+			out->numsurfaces = MSG_ReadLittleLong(sb);
+		}
+		else
+		{
+			child[0] = (unsigned short)MSG_ReadLittleShort(sb);
+			child[1] = (unsigned short)MSG_ReadLittleShort(sb);
+			if (child[0] >= count)
+				child[0] -= 65536;
+			if (child[1] >= count)
+				child[1] -= 65536;
+
+			out->mins[0] = MSG_ReadLittleShort(sb);
+			out->mins[1] = MSG_ReadLittleShort(sb);
+			out->mins[2] = MSG_ReadLittleShort(sb);
+			out->maxs[0] = MSG_ReadLittleShort(sb);
+			out->maxs[1] = MSG_ReadLittleShort(sb);
+			out->maxs[2] = MSG_ReadLittleShort(sb);
+
+			out->firstsurface = (unsigned short)MSG_ReadLittleShort(sb);
+			out->numsurfaces = (unsigned short)MSG_ReadLittleShort(sb);
+		}
+
+		for (j=0 ; j<2 ; j++)
+		{
+			// LadyHavoc: this code supports broken bsp files produced by
+			// arguire qbsp which can produce more than 32768 nodes, any value
+			// below count is assumed to be a node number, any other value is
+			// assumed to be a leaf number
+			p = child[j];
+			if (p >= 0)
+			{
+				if (p < loadmodel.num_nodes)
+					out->children[j] = loadmodel.data_nodes + p;
+				else
+				{
+					TraceLog(LOG_WARNING, "model-shared.c: Mod_Q1BSP_LoadNodes: invalid node index %i (file has only %i nodes)\n", p, loadmodel.num_nodes);
+					// map it to the solid leaf
+					out->children[j] = (mnode_t *)loadmodel.data_leafs;
+				}
+			}
+			else
+			{
+				// get leaf index as a positive value starting at 0 (-1 becomes 0, -2 becomes 1, etc)
+				p = -(p+1);
+				if (p < loadmodel.num_leafs)
+					out->children[j] = (mnode_t *)(loadmodel.data_leafs + p);
+				else
+				{
+					TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadNodes: invalid leaf index %i (file has only %i leafs)\n", p, loadmodel.num_leafs);
+					// map it to the solid leaf
+					out->children[j] = (mnode_t *)loadmodel.data_leafs;
+				}
+			}
+		}
+	}
+
+	//Mod_BSP_LoadNodes_RecursiveSetParent(loadmodel.data_nodes, NULL);	// sets nodes and leafs
+}
 
 
+#define VectorSet(vec,x,y,z) ((vec)[0]=(x),(vec)[1]=(y),(vec)[2]=(z))
+#define VectorClear(a) ((a)[0]=(a)[1]=(a)[2]=0)
 
 void loadBSP(model_t* mod, void* data, void* dataEnd)
 {
     int i, j, k;
     sizebuf_t lumpsb[HEADER_LUMPS];
     sizebuf_t sb;
+	hullinfo_t hullinfo;
 
     memcpy(&loadmodel, mod, sizeof(*mod));
 
@@ -1583,6 +1893,27 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
     MSG_InitReadBuffer(&sb, (unsigned char *)data, (unsigned char *)dataEnd - (unsigned char *)data);
 
     i = MSG_ReadLittleLong(&sb);
+
+	VectorClear (hullinfo.hullsizes[0][0]);
+	VectorClear (hullinfo.hullsizes[0][1]);
+	if (loadmodel.ishlbsp)
+	{
+		hullinfo.filehulls = 4;
+		VectorSet (hullinfo.hullsizes[1][0], -16, -16, -36);
+		VectorSet (hullinfo.hullsizes[1][1], 16, 16, 36);
+		VectorSet (hullinfo.hullsizes[2][0], -32, -32, -32);
+		VectorSet (hullinfo.hullsizes[2][1], 32, 32, 32);
+		VectorSet (hullinfo.hullsizes[3][0], -16, -16, -18);
+		VectorSet (hullinfo.hullsizes[3][1], 16, 16, 18);
+	}
+	else
+	{
+		hullinfo.filehulls = 4;
+		VectorSet (hullinfo.hullsizes[1][0], -16, -16, -24);
+		VectorSet (hullinfo.hullsizes[1][1], 16, 16, 32);
+		VectorSet (hullinfo.hullsizes[2][0], -32, -32, -24);
+		VectorSet (hullinfo.hullsizes[2][1], 32, 32, 64);
+	}
 
     for (i = 0; i < HEADER_LUMPS; i++) {
         int offset = MSG_ReadLittleLong(&sb);
@@ -1599,14 +1930,25 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 	Mod_Q1BSP_LoadTextures(&lumpsb[LUMP_TEXTURES]);
 	Mod_Q1BSP_LoadTexinfo(&lumpsb[LUMP_TEXINFO]);
 	Mod_Q1BSP_LoadLighting(&lumpsb[LUMP_LIGHTING]);
+	Mod_Q1BSP_LoadPlanes(&lumpsb[LUMP_PLANES]);
     Mod_Q1BSP_LoadFaces(&lumpsb[LUMP_FACES]);
-
-
+	Mod_Q1BSP_LoadLeaffaces(&lumpsb[LUMP_MARKSURFACES]);
+	Mod_Q1BSP_LoadVisibility(&lumpsb[LUMP_VISIBILITY]);
+	// load submodels before leafs because they contain the number of vis leafs
+	Mod_BSP_LoadSubmodels(&lumpsb[LUMP_MODELS], &hullinfo);
+	Mod_Q1BSP_LoadLeafs(&lumpsb[LUMP_LEAFS]);
+	Mod_Q1BSP_LoadNodes(&lumpsb[LUMP_NODES]);
 
     PRINT("num of edges %i", loadmodel.numedges);
     PRINT("num of surfedges %i", loadmodel.numsurfedges);
 	PRINT("num of textures %i", loadmodel.num_textures);
 	PRINT("num of vertices %i", loadmodel.vertexCount);
+	PRINT("num of leafs %i", loadmodel.num_leafs);
+	PRINT("num of leafsurfaces %i", loadmodel.num_leafsurfaces);
+	PRINT("num of nodes %i", loadmodel.num_nodes);
+	PRINT("num of planes %i", loadmodel.num_planes);
+	PRINT("num of num of pvs %i", loadmodel.num_compressedpvs);
+	PRINT("num of submodules %i", loadmodel.numsubmodels);
 	PRINT("light data %i", loadmodel.num_lightdata);
 
     //free(loadmodel.edges);

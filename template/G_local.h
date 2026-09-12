@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define G_LOCAL_H
 
 #include "Object.h"
+#include "model_shared.h"
 
 #define INV_MULTI 32.0f
 #define MULTIPLIER (1.0f / INV_MULTI)
@@ -36,8 +37,14 @@ extern Playground* g_playground;
 
 #define MAX_SPAWN_VARS 64
 
+extern model_t g_mapModel;
+
 extern char* spawnVars[MAX_SPAWN_VARS][2];
 extern int numSpawnVars;
+
+extern double alphaBlend;
+extern double host_netinterval;
+extern int host_netTPS;
 
 typedef struct {
 	char* name;

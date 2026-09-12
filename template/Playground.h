@@ -23,16 +23,19 @@
 
 
 #define MAX_BODIES 512
-#define MAX_OBJECTS 128
+#define MAX_OBJECTS 1024
 #define MAX_SPRINGS 128
 
 #define MAX_LINES 64
 
+
+extern Object objects[MAX_OBJECTS];
+
+extern Object camera;
+
 typedef struct Playground
 {
 	
-
-	int (*addObject)(struct Playground* self, Vector3 pos, Vector3 scale, Resource_key* texId, Resource_key* modelId, ObjectType type);
 
 
 
@@ -42,7 +45,6 @@ typedef struct Playground
 	void (*update)(struct Playground* self, EventHandler* eventhandler);
 
 	b3BodyId bodies[MAX_BODIES];
-	Object objects[MAX_OBJECTS];
 	Spring springs[MAX_SPRINGS];
 
 
@@ -54,22 +56,21 @@ typedef struct Playground
 	int springCount;
 
 
-	Object camera;
+	
 	b3WorldId worldId;
 
-	int targetFPS;
-	float targetDeltaTime;
 
 
 	EventHandler eh;
 
-	float elapsed;
-
 } Playground;
 
 
+int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, Resource_key* texId, Resource_key* modelId, ObjectType type);
 
+void pg_update(struct Playground* self, EventHandler* eventhandler);
 
+void pg_camUpdate(struct Playground* self, EventHandler* eventhandler);
 
 void pg_init(struct Playground* self, int targetFPS);
 

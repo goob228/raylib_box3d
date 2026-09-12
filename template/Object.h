@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include <box3d/box3d.h>
 #include <raylib.h>
 #include <raymath.h>
 
@@ -32,8 +33,15 @@ typedef enum
 typedef struct Playground Playground;
 
 
+
 typedef struct Object
 {
+
+	b3Pos posPrev;
+	b3Pos posCurr;
+
+	b3Quat rotPrev;
+	b3Quat rotCurr;
 
 	void (*update)(struct Object* self, Playground* playground);
 	void (*updateMatrix)(struct Object* self);

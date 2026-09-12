@@ -8,13 +8,18 @@
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Playground.h"
-#include "LuaBind.h"
 #include "Menu.h"
 #include "Resource.h"
 #include "Zone.h"
+#include "SysCvar.h"
+#include "G_local.h"
 
 Playground* g_playground = NULL;
 
+double alphaBlend = 0.0;
+
+double  host_netinterval = 1.0/60;
+int host_netTPS = 60;
 
 static bool inMenu = 0;
 
@@ -24,7 +29,6 @@ void game_quit(struct Game* self)
 	self->_playground->cleanUp(self->_playground);
 	self->_windowhandler->close(self->_windowhandler);
 
-	lua_close(self->L);
 
 
 	self->running = false;
@@ -39,13 +43,13 @@ void game_quit(struct Game* self)
 
 int game_init(struct Game* self)
 {
-	
+	host_netinterval = 1.0/cv_TPS.valuei;
+	host_netTPS = cv_TPS.valuei;
 
 	self->running = false;
 	self->_windowhandler = (WindowHandler*)0;
 	self->_eventhandler = (EventHandler*)0;
 	self->_playground = (Playground*)0;
-	self->L = (lua_State*)0;
 
 	self->running = false;
 
@@ -82,11 +86,6 @@ int game_init(struct Game* self)
 
 	self->running = true;
 
-	
-
-	self->L = luaL_newstate();
-
-	lual_init(self->L, self->_playground, self->_eventhandler);
 
 
 	return 0;
@@ -107,8 +106,9 @@ void* raylib_free_wrapper(void* ptr) {
 
 void game_startLoop(struct Game* self)
 {
+	
 		
-	#define GAME_MEMORY_SIZE (64 * 1024 * 1024)
+	#define GAME_MEMORY_SIZE (128 * 1024 * 1024)
 
 	void* global_buffer = malloc(GAME_MEMORY_SIZE);
 
@@ -123,10 +123,16 @@ void game_startLoop(struct Game* self)
 	
 
 
-	
+	static double	accumtime = 0;
+	double newTime = GetTime();
+	double oldTime = 0.0;
+	double time = 0.0;
 
 	while (self->running) {
-
+		oldTime = newTime;
+		newTime = GetTime();
+		time = newTime - oldTime;
+		accumtime += time;
 		eh_processInput(self->_eventhandler);
 
 		if (self->_eventhandler->keys & EH_K_QUIT) {
@@ -158,11 +164,18 @@ void game_startLoop(struct Game* self)
 			*(self->_eventhandler) = (EventHandler){0};
 		}
 
-		lua_getglobal(self->L, "update");
-		lua_pcall(self->L, 0, 0, 0);
+		pg_camUpdate(self->_playground, self->_eventhandler);
 
-		self->_playground->update(self->_playground, self->_eventhandler);
+		if (accumtime >= host_netinterval) {
+			pg_update(self->_playground, self->_eventhandler);
+			accumtime -= host_netinterval;
+			
+		}
 		
+		
+		
+		alphaBlend = accumtime/host_netinterval;
+		alphaBlend = alphaBlend > 0.0 ? (alphaBlend < 1.0 ? alphaBlend : 1.0) : 0.0;
 		self->_windowhandler->startFrame(self->_windowhandler);
 		self->_playground->render(self->_playground, self->_windowhandler);
 		if (inMenu) {

@@ -1,7 +1,8 @@
 #include "Prefabs.h"
 
 #include <math.h>
-
+#include <stdint.h>
+#include <string.h>
 
 #include "Object.h"
 #include "Camera.h"
@@ -12,7 +13,9 @@
 #include "Playground.h"
 #include "EventHandler.h"
 #include "Animation.h"
-
+#include "G_local.h"
+#include "Zone.h"
+#include "model_shared.h"
 
 
 
@@ -46,7 +49,7 @@ void wheel_update(Object* obj, Playground* playground)
 	if (wheeldata->car) {
 		self->pos = (Vector3){ wheeldata->defaultPos.x, 
 				wheeldata->defaultPos.y - wheeldata->prevHeight + wheeldata->radius, wheeldata->defaultPos.z};
-		wheeldata->YZangle += wheeldata->speed / wheeldata->radius * playground->targetDeltaTime;
+		wheeldata->YZangle += wheeldata->speed / wheeldata->radius * host_netinterval;
 		wheeldata->YZangle = fmodf(wheeldata->YZangle, 2 * PI);
 		self->rot = QuaternionFromEuler(wheeldata->YZangle, wheeldata->angle, 0.0f);
 	}
@@ -172,14 +175,14 @@ void car_update(Object* obj, Playground* playground)
 
 		if (cardata->accelerating) {
 
-			((WheelData*)cardata->wheels[i]->data)->speed += cardata->torqueCurve.evaluate(&cardata->torqueCurve, ((WheelData*)cardata->wheels[i]->data)->speed / cardata->maxSpeed) * cardata->torque * playground->targetDeltaTime;
+			((WheelData*)cardata->wheels[i]->data)->speed += cardata->torqueCurve.evaluate(&cardata->torqueCurve, ((WheelData*)cardata->wheels[i]->data)->speed / cardata->maxSpeed) * cardata->torque * host_netinterval;
 
 			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
 			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
 			//torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 		}
 		else {
-			float basicFriction = 10.0f * playground->targetDeltaTime;
+			float basicFriction = 10.0f * host_netinterval;
 			if (((WheelData*)cardata->wheels[i]->data)->speed > 0.0f) 
 				((WheelData*)cardata->wheels[i]->data)->speed -= Clamp(basicFriction, 0.0f, ((WheelData*)cardata->wheels[i]->data)->speed);
 			else 
@@ -187,7 +190,7 @@ void car_update(Object* obj, Playground* playground)
 		}
 		
 
-		float maxVelFric = 30.0f * playground->targetDeltaTime;
+		float maxVelFric = 30.0f * host_netinterval;
 		
 		
 
@@ -246,7 +249,7 @@ void car_update(Object* obj, Playground* playground)
 			//if (_accelerating);
 			((WheelData*)cardata->wheels[i]->data)->speed -= diff;
 
-			frictionforce = (b3Vec3){ -wheelVel.x * (float)playground->targetFPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
+			frictionforce = (b3Vec3){ -wheelVel.x * (float)host_netTPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
 			vecToWheel(&frictionforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
 			
@@ -254,7 +257,7 @@ void car_update(Object* obj, Playground* playground)
 
 			frictionforce = b3MulSub(frictionforce, friction_force_factor, result.normal);
 
-			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)playground->targetFPS * bodyMass * 0.25f };
+			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)host_netTPS * bodyMass * 0.25f };
 				//diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
 			vecToWheel(&torqueforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
@@ -412,7 +415,7 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	
 	float pogoRestLength = 1.5f + data->capsule.radius;
 	float rayLength = pogoRestLength + data->capsule.radius;
-	data->trans.p = (b3Pos){self->pos.x, self->pos.y, self->pos.z};
+	//data->trans.p = b3ToVec3(self->posCurr);
 	b3Pos rayOrigin = b3TransformWorldPoint(data->trans, data->capsule.center1);
 	b3Vec3 rayTranslation = (b3Vec3){0.0f, -rayLength, 0.0f};
 	b3QueryFilter skipTeamFilter = { 1, ~2u };
@@ -492,6 +495,8 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 		}
 
 	}
+
+
 	float invMassA = 1.0f/data->mass;
 	for (int i = 0; i < data->planeCount; i++){
 		b3BodyId bodyId = b3Shape_GetBody(data->planeExtras[i].shapeId);
@@ -546,8 +551,8 @@ void character_update(Object* obj, Playground* playground)
 {
 	Object* self = obj;
 	CharacterData* data = (CharacterData*)self->data;
-	self->pos = data->trans.p;
-	self->updateMatrix(self);
+	self->posPrev = self->posCurr;
+	self->posCurr = b3ToPos(data->trans.p);
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	b3Vec2 throttle = { 0.0f, 0.0f };
@@ -580,15 +585,15 @@ void character_update(Object* obj, Playground* playground)
 		data->sprint = false;
 	}
 
-	float hertz = playground->targetFPS;
+	float hertz = host_netTPS;
 	float timeStep = hertz > 0.0f ? 1.0f / hertz : 0.0f;
 
 	character_solveMove(self, timeStep, forward, right, throttle, true);
-	b3Pos position = self->pos;
 }
 
 void char_draw(struct Object* self, Playground* playground)
 {	
+	self->updateMatrix(self);
 	CharacterData* data = (CharacterData*)self->data;
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
@@ -608,7 +613,7 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 	
 	data->capsule = (b3Capsule){ { 0.0f, -0.25f, 0.0f }, { 0.0f, 0.25f, 0.0f }, 0.2f };
 	data->trans = b3Transform_identity;
-	data->trans.p = (b3Vec3){self->pos.x, self->pos.y, self->pos.z};
+	data->trans.p = (b3Vec3){self->posCurr.x, self->posCurr.y, self->posCurr.z};
 	data->velocity = b3Vec3_zero;
 	data->camera = camera;
 	data->playground = playground;
@@ -634,4 +639,219 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 	self->draw = char_draw;
 	
 
+}
+
+
+/*
+#define DotProduct(x,y)					((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
+
+//===============
+//Mod_PointInLeaf
+//===============
+
+mleaf_t *Mod_PointInLeaf (float p[3])
+{
+	mnode_t		*node;
+	float		d;
+	mplane_t	*plane;
+
+	if (!g_mapModel.data_nodes)
+		TraceLog(LOG_ERROR, "Prefabs.c: Mod_PointInLeaf: bad model");
+
+	node = g_mapModel.data_nodes;
+	while (1)
+	{
+		if (node->combinedsupercontents < 0)
+			return (mleaf_t *)node;
+		plane = node->plane;
+		d = DotProduct(p,plane->normal) - plane->dist;
+		if (d > 0)
+			node = node->children[0];
+		else
+			node = node->children[1];
+	}
+
+	return NULL;	// never reached
+}
+
+
+typedef uint8_t byte;
+
+
+//===================
+//Mod_DecompressVis
+//===================
+
+
+static byte* mod_decompressed = NULL;
+static int mod_decompressed_capacity = 0;
+
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
+
+static byte *Mod_DecompressVis (byte *in)
+{
+	int		c;
+	byte	*out;
+	byte	*outend;
+	int		row;
+
+	row = (g_mapModel.num_leafs+7)>>3;
+	if (mod_decompressed == NULL || row > mod_decompressed_capacity)
+	{
+		mod_decompressed_capacity = (row + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+		mod_decompressed = (byte *)Z_Realloc(mod_decompressed, mod_decompressed_capacity);
+		if (!mod_decompressed)
+			TraceLog(LOG_ERROR, "Prefabs.c: Mod_DecompressVis: realloc() failed on %d bytes", mod_decompressed_capacity);
+	}
+	out = mod_decompressed;
+	outend = mod_decompressed + row;
+
+	if (!in)
+	{	// no vis info, so make all visible
+		while (row)
+		{
+			*out++ = 0xff;
+			row--;
+		}
+		return mod_decompressed;
+	}
+
+	do
+	{
+		if (*in)
+		{
+			*out++ = *in++;
+			continue;
+		}
+
+		c = in[1];
+		in += 2;
+		if (c > row - (out - mod_decompressed))
+			c = row - (out - mod_decompressed);	//now that we're dynamically allocating pvs buffers, we have to be more careful to avoid heap overflows with buggy maps.
+		
+
+		while (c)
+		{
+			if (out >= outend)
+			{
+				TraceLog(LOG_WARNING, "Prefabs.c: Mod_DecompressVis: output overrun on model \"%s\"\n", g_mapModel.name);
+				return mod_decompressed;
+			}
+			*out++ = 0;
+			c--;
+		}
+	} while (out - mod_decompressed < row);
+
+	return mod_decompressed;
+}
+#define IS_LEAF_VISIBLE(l, pvs) (pvs[l >> 3] & (1 << ((l) & 7)))
+
+*/
+
+void map_draw(struct Object* self, Playground* playground)
+{
+	self->updateMatrix(self);
+	DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+
+	/*
+	int beforeMark = Hunk_LowMark();
+	float cameraP[3] = {0};
+	CameraData* camdata = (CameraData*)camera.data;
+	cameraP[0] = -camdata->cam.position.x * INV_MULTI;
+	cameraP[1] = camdata->cam.position.z * INV_MULTI;
+	cameraP[2] = camdata->cam.position.y * INV_MULTI;
+	mleaf_t* leaf = Mod_PointInLeaf(cameraP);
+
+	//#define IS_LEAF_VISIBLE(l, pvs) (pvs[(l) >> 3] & (1 << ((l) & 7)))
+
+	byte* frame_pvs = NULL;
+
+	if (leaf->clusterindex >= 0 && g_mapModel.data_compressedpvs) {
+		frame_pvs = Mod_DecompressVis(g_mapModel.data_compressedpvs + leaf->clusterindex);
+	} else {
+		frame_pvs = Mod_DecompressVis(NULL);
+	}
+	
+	
+	msurface_t* surface;
+	int i = 0;
+	int* leafsurfid = NULL;
+	int numvertices = 0;
+	int num_of_leafs = 0;
+	for (int lid = 0; lid < g_mapModel.num_leafs; lid++) {
+		if (!IS_LEAF_VISIBLE(lid, frame_pvs)) continue;
+		leaf = g_mapModel.data_leafs + lid;
+		num_of_leafs++;
+		for (i = 0, leafsurfid = leaf->firstleafsurface; i < leaf->numleafsurfaces; i++, leafsurfid++) {
+			surface = &(g_mapModel.data_surfaces[*leafsurfid]);
+			if (!surface->included) {
+				numvertices += surface->num_vertices;
+				surface->included = true;
+			}
+			
+			
+		}
+	}
+		
+
+	//Model md = getModelResource(&(self->modelres));
+	Mesh mesh = {0};
+
+	mesh.triangleCount = numvertices/3;
+	mesh.vertexCount = numvertices;
+	mesh.vertices = Hunk_Alloc(numvertices*3*sizeof(float));
+
+	int vertid = 0;
+
+	float x = 0.0f;
+	float y = 0.0f;
+	float z = 0.0f;
+
+	
+
+	mesh_t* cmesh;
+
+
+	for (int sid = 0; sid < g_mapModel.num_surfaces; sid++) {
+		surface = g_mapModel.data_surfaces + sid;
+		if (!surface->included) continue;
+		cmesh = g_mapModel.mesh + surface->mesh_idx;
+		memcpy(mesh.vertices+vertid, cmesh->vertices+surface->num_firstvertex*3, surface->num_vertices*3*sizeof(float));
+		vertid += surface->num_vertices*3;
+		surface->included = false;
+	}
+
+	//TraceLog(LOG_INFO, " %i NUM OF LEAFS:", num_of_leafs);
+
+	//UploadMesh(&mesh, false);
+
+	Model md = { 0 };
+	md.meshCount = 1;
+	md.meshes = &mesh;
+	md.transform = self->transform;
+
+	md.materialCount = 1;
+	Material material = LoadMaterialDefault();
+	md.materials = &material;
+	md.meshMaterial = (int[1]){0};
+	
+
+	
+	DrawModel(md, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+
+	Hunk_FreeToLowMark(beforeMark);
+
+	rlUnloadVertexArray(mesh.vaoId);
+
+    if (mesh.vboId != NULL) for (int i = 0; i < 7; i++) rlUnloadVertexBuffer(mesh.vboId[i]);
+    RL_FREE(mesh.vboId);
+	*/
+
+}
+
+Object* map_create(Object* object)
+{
+	object->draw = &map_draw;
+	
 }

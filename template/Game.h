@@ -4,7 +4,6 @@
 #include "WindowHandler.h"
 #include "EventHandler.h"
 #include "Playground.h"
-#include "LuaBind.h"
 
 #ifndef SET_FPS 
 #define SET_FPS 60
@@ -21,7 +20,6 @@ typedef struct Game
 	WindowHandler* _windowhandler;
 	EventHandler* _eventhandler;
 	Playground* _playground;
-	lua_State* L;
 
 	bool running;
 

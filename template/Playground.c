@@ -18,7 +18,14 @@
 #include "Resource.h"
 
 #include "Prefabs.h"
+#include "G_local.h"
 
+
+Object objects[MAX_OBJECTS] = {0};
+
+Object camera = {0};
+
+int objectCount = 1;
 
 
 #define FNV_32_OFFSET 2166136261
@@ -44,30 +51,34 @@ int pg_addModel(struct Playground* self, char const* fileName);
 
 int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, Resource_key* texId, Resource_key* modelId, ObjectType type)
 {
-	int objid = self->objCount;
-	self->objects[objid].transform = MatrixIdentity();
-	self->objects[objid].pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
-	self->objects[objid].rot = QuaternionIdentity(); 
-	self->objects[objid].scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
-	self->objects[objid].alive = true; 
-	self->objects[objid].type = OBJ_NONE; 
-	self->objects[objid].parent = (Object*)0; 
-	self->objects[objid].physId = 0; 
-	self->objects[objid].onRemove = false;
+	int objid = objectCount;
+	objects[objid].transform = MatrixIdentity();
+	objects[objid].pos = (Vector3){ 0.0f, 0.0f, 0.0f }; 
+	objects[objid].rot = QuaternionIdentity(); 
+	objects[objid].scale = (Vector3){ 1.0f, 1.0f, 1.0f }; 
+	objects[objid].alive = true; 
+	objects[objid].type = OBJ_NONE; 
+	objects[objid].parent = (Object*)0; 
+	objects[objid].physId = 0; 
+	objects[objid].onRemove = false;
 
-	self->objects[objid].update = (&ob_update);
-	self->objects[objid].updateMatrix = (&ob_updateMatrix);
-	self->objects[objid].draw = (&ob_draw);
-	self->objects[objid].setParent = (&ob_setParent);
-	self->objects[objid].scale = scale;
-	self->objects[objid].pos = pos;
-	self->objects[objid].texres = *texId;
-	self->objects[objid].modelres = *modelId;
-	self->objects[objid].type = type;
-	self->objects[objid].updateMatrix(&self->objects[objid]);
+	objects[objid].update = (&ob_update);
+	objects[objid].updateMatrix = (&ob_updateMatrix);
+	objects[objid].draw = (&ob_draw);
+	objects[objid].setParent = (&ob_setParent);
+	objects[objid].scale = scale;
+	objects[objid].posCurr.x = pos.x;
+	objects[objid].posCurr.y = pos.y;
+	objects[objid].posCurr.z = pos.z;
+	objects[objid].texres = *texId;
+	objects[objid].modelres = *modelId;
+	objects[objid].type = type;
+	objects[objid].updateMatrix(&objects[objid]);
+
+	/*
 
 	if (type == OBJ_PROP || type == OBJ_OBSTACLE) {
-		BoundingBox bb = GetModelBoundingBox(getModelResource(&(self->objects[objid].modelres)));
+		BoundingBox bb = GetModelBoundingBox(getModelResource(&(objects[objid].modelres)));
 
 		b3Transform transform = { 0 };
 		transform.p.x = (bb.max.x + bb.min.x) * scale.x / 2.0f;
@@ -101,13 +112,13 @@ int pg_addObject(struct Playground* self, Vector3 pos, Vector3 scale, Resource_k
 
 
 		self->bodies[self->bodyCount] = bodyId;
-		self->objects[objid].physId = self->bodyCount;
+		objects[objid].physId = self->bodyCount;
 		self->bodyCount++;
-	}
+	} */
 
-	self->objCount += 1;
+	objectCount += 1;
 
-	return self->objCount-1;
+	return objectCount-1;
 	
 }
 
@@ -122,24 +133,18 @@ b3Recording* recording = NULL;
 void pg_init(struct Playground* self, int targetFPS)
 {
 
-	self->addObject = (&pg_addObject);
 	self->render = (&pg_render);
 	self->update = (&pg_update);
 	self->cleanUp = (&pg_cleanUp);
 
 	for (int i = 0; i < MAX_SPRINGS; i++) {
-		self->objects[i].onRemove = true;
+		objects[i].onRemove = true;
 	}
 
 	self->bodyCount = 1;
-	self->objCount = 1;
+	objectCount = 1;
 	self->springCount = 1;
 
-	self->elapsed = 0.0f;
-
-
-	self->targetFPS = targetFPS;
-	self->targetDeltaTime = 1.0f / (float)self->targetFPS;
 
 	b3WorldDef worldDef = b3DefaultWorldDef();
 	worldDef.gravity = (b3Vec3){ 0.0f, -10.0f, 0.0f };
@@ -149,7 +154,7 @@ void pg_init(struct Playground* self, int targetFPS)
 
 	self->worldId = g_worldid;
 
-	gc_init(&self->camera);
+	gc_init(&camera);
 
 
 	/*
@@ -159,9 +164,9 @@ void pg_init(struct Playground* self, int targetFPS)
 	
 	int ti = pg_addObject(self, (Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 1.0f, 1.0f, 1.0f }, &texkey2, &modkey2, OBJ_NONE);
 
-	character_create(&self->objects[ti], &self->camera, self);
+	character_create(&objects[ti], &camera, self);
 
-	self->camera.setParent(&self->camera, &self->objects[ti]);
+	camera.setParent(&camera, &objects[ti]);
 
 	Resource_key key =  (Resource_key){0};
 	Resource_key modelkey =  loadModelResource("\\map");
@@ -197,29 +202,37 @@ void pg_update(struct Playground* self, EventHandler* eventhandler)
 		self->eh = *eventhandler;
 	else 
 		self->eh = (EventHandler){0};
-	self->camera.update((Object*)&self->camera, self);
 
-	b3World_Step(self->worldId, self->targetDeltaTime, 1);
+	b3World_Step(self->worldId, (float)host_netinterval, 1);
 
 	
 
 
-	for (int i = 1; i <= self->objCount; i++) {
-		if (self->objects[i].onRemove != true) {
-			self->objects[i].update(&self->objects[i],self);
+	for (int i = 1; i < objectCount; i++) {
+		if (objects[i].onRemove != true) {
+			objects[i].update(&objects[i],self);
 			
 		}
 	}
 }
 
+void pg_camUpdate(struct Playground* self, EventHandler* eventhandler)
+{
+	if (eventhandler)
+		self->eh = *eventhandler;
+	else 
+		self->eh = (EventHandler){0};
+	camera.update((Object*)&camera, self);
+}
+
 void pg_render(struct Playground* self, WindowHandler* windowhandler)
 {
-	((CameraData*)self->camera.data)->startFrame(&self->camera);
+	((CameraData*)camera.data)->startFrame(&camera);
 
 
-	for (int i = 1; i <= self->objCount; i++) {
-		if (self->objects[i].onRemove != true) {
-			self->objects[i].draw(&self->objects[i], self);
+	for (int i = 1; i < objectCount; i++) {
+		if (objects[i].onRemove != true) {
+			objects[i].draw(&objects[i], self);
 		}
 	}
 
@@ -238,11 +251,11 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 		DrawLine3D(spos, epos, MAROON);
 
 	}
-	self->elapsed += self->targetDeltaTime;
+
 	
 
 	EndShaderMode();
-	((CameraData*)self->camera.data)->endFrame(&self->camera);
+	((CameraData*)camera.data)->endFrame(&camera);
 
 	//Resource_key key = loadTextureResource("\\light");
 

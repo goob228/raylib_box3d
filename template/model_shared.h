@@ -87,6 +87,100 @@ typedef struct texture_s
 
 } texture_t;
 
+// plane_t structure
+typedef struct mplane_s
+{
+	union
+	{
+		struct
+		{
+			float normal[3];
+			float dist;
+		};
+		float normal_and_dist[4];
+	};
+	// for texture axis selection and fast side tests
+	int type; // set by PlaneClassify()
+	int signbits; // set by PlaneClassify()
+}
+mplane_t;
+
+/// <summary>
+///  describes the textures to use on a range of triangles in the model, and mins/maxs (AABB) for culling.
+/// </summary>
+typedef struct msurface_s
+{
+	/// range of triangles and vertices in model->surfmesh
+	int num_triangles; // triangles
+	int num_firsttriangle; // first element is this *3
+	int num_vertices; // length of the range referenced by elements
+	int num_firstvertex; // min vertex referenced by elements
+
+	int tex_idx;
+
+	// the following fields are used situationally and are not part of rendering in typical usage
+
+	/// bounding box for onscreen checks
+	float mins[3];
+	float maxs[3];
+
+	/// lightmaptexture rebuild information not used in q3bsp
+	//msurface_lightmapinfo_t* lightmapinfo; // q1bsp
+	/// fog volume info in q3bsp
+	//struct q3deffect_s* effect; // q3bsp
+
+	// used by Mod_Mesh_Finalize when building sortedmodelsurfaces
+	bool included;
+} msurface_t;
+
+typedef struct mleaf_s
+{
+	//this part shared between node and leaf
+	mplane_t *plane; // == NULL
+	struct mnode_s *parent;
+	struct mportal_s *portals;
+	// for bounding box culling
+	float mins[3];
+	float maxs[3];
+	// supercontents from all brushes inside this node or leaf
+	int combinedsupercontents;
+
+	// this part unique to leaf
+	// common
+	int clusterindex; // -1 is not in pvs, >= 0 is pvs bit number
+	int areaindex; // q3bsp
+	int containscollisionsurfaces; // indicates whether the leafsurfaces contains q3 patches
+	int numleafsurfaces;
+	int *firstleafsurface;
+	int numleafbrushes; // q3bsp
+	int *firstleafbrush; // q3bsp
+	unsigned char ambient_sound_level[NUM_AMBIENTS]; // q1bsp
+	int contents; // q1bsp: // TODO: remove (only used temporarily during loading when making collision hull 0)
+	int portalmarkid; // q1bsp // used by see-polygon-through-portals visibility checker
+}
+mleaf_t;
+
+typedef struct mnode_s
+{
+	//this part shared between node and leaf
+	mplane_t *plane; // != NULL
+	struct mnode_s *parent;
+	struct mportal_s *portals;
+	// for bounding box culling
+	float mins[3];
+	float maxs[3];
+	// supercontents from all brushes inside this node or leaf
+	int combinedsupercontents;
+
+	// this part unique to node
+	struct mnode_s *children[2];
+
+	// q1bsp specific
+	unsigned int firstsurface;
+	unsigned int numsurfaces;
+}
+mnode_t;
+
 typedef struct {
 
     char name[MAX_QPATH];
@@ -106,6 +200,9 @@ typedef struct {
     int numsurfedges;
     int* surfedges;
 
+	int numsubmodels;
+	mmodel_t		*submodels;
+
     int	num_textures;
     texture_t   *data_textures;
 
@@ -114,6 +211,25 @@ typedef struct {
 
 	int				num_lightdata;
 	unsigned char			*lightdata;
+
+	int				num_surfaces;
+	msurface_t		*data_surfaces;
+
+	int num_planes;
+	mplane_t *data_planes;
+
+		int num_nodes;
+	mnode_t *data_nodes;
+
+	int num_leafsurfaces;
+	int *data_leafsurfaces;
+
+	int				num_compressedpvs;
+	unsigned char			*data_compressedpvs;
+
+		// number of actual leafs (including 0 which is solid)
+	int num_leafs;
+	mleaf_t *data_leafs;
 
 	int light_width;
 	int light_height;
@@ -125,7 +241,7 @@ typedef struct {
 
     bool isbsp2;
     bool ishlbsp;
-
+	bool isbsp2rmqe;
 
 
 } model_t;
