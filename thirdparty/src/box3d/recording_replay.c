@@ -8,7 +8,6 @@
 #include "recording_replay.h"
 
 #include "body.h"
-#include "compound.h"
 #include "physics_world.h"
 #include "world_snapshot.h"
 
@@ -289,6 +288,9 @@ b3PlaneResult b3RecR_PLANERESULT( b3RecReader* rdr )
 	v.plane.normal = b3RecR_VEC3( rdr );
 	v.plane.offset = b3RecR_F32( rdr );
 	v.point = b3RecR_VEC3( rdr );
+	v.triangleIndex = b3RecR_I32( rdr );
+	v.childIndex = b3RecR_I32( rdr );
+	v.materialIndex = b3RecR_I32( rdr );
 	return v;
 }
 
@@ -1802,7 +1804,8 @@ static bool b3RecReplayPlaneTrampoline( b3ShapeId id, const b3PlaneResult* plane
 		const b3RecRecordedHit* h = &rc->hits[rc->cursor + i];
 		if ( b3RecVec3Differs( h->plane.plane.normal, planes[i].plane.normal ) ||
 			 b3RecF32Differs( h->plane.plane.offset, planes[i].plane.offset ) ||
-			 b3RecVec3Differs( h->plane.point, planes[i].point ) )
+			 b3RecVec3Differs( h->plane.point, planes[i].point ) || h->plane.triangleIndex != planes[i].triangleIndex ||
+			 h->plane.childIndex != planes[i].childIndex || h->plane.materialIndex != planes[i].materialIndex )
 		{
 			rc->rdr->diverged = true;
 		}
@@ -2176,7 +2179,7 @@ static int b3RecDispatchOne( b3RecReader* rdr )
 
 bool b3ValidateReplay( const void* data, int size, int workerCount )
 {
-	b3RecPlayer* player = b3RecPlayer_Create( data, size, workerCount );
+	b3RecPlayer* player = b3CreatePlayer( data, size, workerCount );
 	if ( player == NULL )
 	{
 		return false;
@@ -2191,7 +2194,7 @@ bool b3ValidateReplay( const void* data, int size, int workerCount )
 	}
 
 	bool ok = player->rdr.ok && player->rdr.diverged == false;
-	b3RecPlayer_Destroy( player );
+	b3DestroyPlayer( player );
 	return ok;
 }
 
@@ -2600,7 +2603,7 @@ static void b3RecSeedKeyframeRegistry( b3RecPlayer* player )
 		{
 			memcpy( copy, slot->bytes, (size_t)slot->byteCount );
 		}
-		uint64_t h = b3Hash64Blob( slot->bytes, slot->byteCount );
+		uint64_t h = b3Hash64NonZero( slot->bytes, slot->byteCount );
 		uint32_t id = b3AppendGeometry( reg, slot->kind, h, copy, slot->byteCount );
 		// Seeding in order without dedup keeps id == slot index.
 		B3_ASSERT( id == (uint32_t)i );
@@ -2724,7 +2727,7 @@ static b3WorldId b3RecPlayerCreateWorld( const b3RecPlayer* player )
 	return b3CreateWorld( &worldDef );
 }
 
-b3RecPlayer* b3RecPlayer_Create( const void* data, int size, int workerCount )
+b3RecPlayer* b3CreatePlayer( const void* data, int size, int workerCount )
 {
 	if ( data == NULL || size < (int)sizeof( b3RecHeader ) )
 	{
@@ -2878,7 +2881,7 @@ b3RecPlayer* b3RecPlayer_Create( const void* data, int size, int workerCount )
 	return player;
 }
 
-void b3RecPlayer_Destroy( b3RecPlayer* player )
+void b3DestroyPlayer( b3RecPlayer* player )
 {
 	if ( player == NULL )
 	{
