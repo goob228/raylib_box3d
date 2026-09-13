@@ -257,11 +257,11 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 	EndShaderMode();
 	((CameraData*)camera.data)->endFrame(&camera);
 
-	Resource_key key = loadTextureResource("\\light");
+	//Resource_key key = loadTextureResource("\\light");
 
-	Texture tex = getTextureResource(&key);
+	//Texture tex = getTextureResource(&key);
 
-	DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.5f*1024.0f/(float)tex.width), WHITE);
+	//DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.5f*1024.0f/(float)tex.width), WHITE);
 
 }
 

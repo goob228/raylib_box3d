@@ -45,7 +45,7 @@ void gc_update(struct Object* obj, Playground* playground)
 		camdata->wanna_yaw -= playground->eh.mx * camdata->sensitivity;
 		camdata->wanna_pitch -= playground->eh.my * camdata->sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
 		camdata->wanna_pitch = Clamp(camdata->wanna_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
-		double dt = (double)GetFrameTime() * 22.0;
+		double dt = (double)GetFrameTime() * 25.0;
 		dt = (double)MYCLAMP(dt);
 		camdata->yaw = MYLERP(camdata->yaw, camdata->wanna_yaw, dt);
 		camdata->pitch = MYLERP(camdata->pitch, camdata->wanna_pitch, dt);

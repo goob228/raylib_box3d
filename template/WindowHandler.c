@@ -66,7 +66,7 @@ void wh_init(struct WindowHandler* self, int FPS)
 	
 	SetConfigFlags(FLAG_MSAA_4X_HINT); 
 	InitWindow(self->screenWidth, self->screenHeight, "template");
-	SetTargetFPS(cv_FPS.valuei);
+	//SetTargetFPS(cv_FPS.valuei);
 
 	SetExitKey(KEY_NULL);
 	DisableCursor();

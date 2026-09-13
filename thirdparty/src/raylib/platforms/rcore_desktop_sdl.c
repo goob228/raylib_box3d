@@ -1497,6 +1497,8 @@ void PollInputEvents(void)
         CORE.Time.previous = GetTime();
     }
 
+    Vector2 MouseCurrentPositionSummary = (Vector2){ 0.0f, 0.0f };
+
     SDL_Event event = { 0 };
     while (SDL_PollEvent(&event) != 0)
     {
@@ -1755,8 +1757,10 @@ void PollInputEvents(void)
             {
                 if (CORE.Input.Mouse.cursorLocked)
                 {
-                    CORE.Input.Mouse.currentPosition.x = (float)event.motion.xrel;
-                    CORE.Input.Mouse.currentPosition.y = (float)event.motion.yrel;
+                    MouseCurrentPositionSummary.x += (float)event.motion.xrel;
+                    MouseCurrentPositionSummary.y += (float)event.motion.yrel;
+                    CORE.Input.Mouse.currentPosition.x = 0.0f;
+                    CORE.Input.Mouse.currentPosition.y = 0.0f;
                     CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };
                 }
                 else
@@ -1981,6 +1985,14 @@ void PollInputEvents(void)
                 }
             } break;
             default: break;
+        }
+
+        if (CORE.Input.Mouse.cursorLocked && (MouseCurrentPositionSummary.x || MouseCurrentPositionSummary.y))
+        {
+            CORE.Input.Mouse.currentPosition.x = MouseCurrentPositionSummary.x;
+            CORE.Input.Mouse.currentPosition.y = MouseCurrentPositionSummary.y;
+            CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };
+            CORE.Input.Touch.position[0] = CORE.Input.Mouse.currentPosition;
         }
 
 #if SUPPORT_GESTURES_SYSTEM
