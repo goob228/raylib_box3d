@@ -12,7 +12,7 @@
 Cvar cv_width =     {"width",     "width of screen",          "1200",     ACCESS_CLIENT,      CV_INT,     .valuei = 1200,    .dvaluei = 1200,     NULL};
 Cvar cv_height =    {"height",    "height of screen",         "800",      ACCESS_CLIENT,      CV_INT,     .valuei = 800,     .dvaluei = 800,      NULL};
 Cvar cv_vsync =     {"vsync",     "vsync toggle",             "1",        ACCESS_SERVER,      CV_BOOL,    .valueb = true,    .dvalueb = true,     NULL};
-Cvar cv_FPS =       {"FPS",       "frames per second",        "60",       ACCESS_SERVER,      CV_INT,     .valuei = 60,      .dvaluei = 60,       NULL};
+Cvar cv_FPS =       {"FPS",       "frames per second",        "60",       ACCESS_SERVER,      CV_INT,     .valuei = 120,      .dvaluei = 120,       NULL};
 Cvar cv_TPS =       {"TPS",       "game ticks per second",    "20",       ACCESS_SERVER,      CV_INT,     .valuei = 30,      .dvaluei = 30,       NULL};
 
 void printCvar(Cvar* cvar)

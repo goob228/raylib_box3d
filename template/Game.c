@@ -123,7 +123,8 @@ void game_startLoop(struct Game* self)
 	
 
 
-	static double	accumtime = 0;
+	static double	accumtime = 0.0;
+	accumtime = host_netinterval;
 	double newTime = GetTime();
 	double oldTime = 0.0;
 	double time = 0.0;
@@ -166,7 +167,7 @@ void game_startLoop(struct Game* self)
 
 		pg_camUpdate(self->_playground, self->_eventhandler);
 
-		if (accumtime >= host_netinterval) {
+		while (accumtime >= host_netinterval) {
 			pg_update(self->_playground, self->_eventhandler);
 			accumtime -= host_netinterval;
 			

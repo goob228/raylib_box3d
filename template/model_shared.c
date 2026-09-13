@@ -18,8 +18,7 @@
 
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
-#define LIGHTMAP_WIDTH 4096
-#define LIGHTMAP_HEIGHT 4096
+
 
 
 static model_t loadmodel;
@@ -720,7 +719,7 @@ static textype_t Mod_TextureTypeFromName (const char *texname)
 	if (texname[0] == '{')
 		return TEXTYPE_CUTOUT;
 
-	if (!strncmp (texname,"sky",3))
+	if (!strncmp (texname,"sky",3) || !strncmp (texname,"pid",3))
 		return TEXTYPE_SKY;
 
 	return TEXTYPE_DEFAULT;
@@ -1296,9 +1295,21 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 	qsort(atindexes, count, sizeof(atlase_t*), compareAtlases);
 
-	loadmodel.lightTexture = (unsigned char*)Hunk_AllocNameNoFill(LIGHTMAP_WIDTH*LIGHTMAP_HEIGHT*3, "lightatlas");
-	loadmodel.light_width = LIGHTMAP_WIDTH;
-	loadmodel.light_height = LIGHTMAP_HEIGHT;
+	int power_of_two = 16;
+	int power_of_two_twiced = power_of_two * power_of_two;
+	int power = 4;
+
+	for (int penistuy = 0; penistuy < 20; penistuy++) {
+		power_of_two <<= 1;
+		power_of_two_twiced <<= 2;
+		if (power_of_two_twiced > loadmodel.num_lightdata/3) {
+			break;
+		}
+	}
+	
+	loadmodel.light_width = power_of_two;
+	loadmodel.light_height = power_of_two*2;
+	loadmodel.lightTexture = (unsigned char*)Hunk_AllocNameNoFill(loadmodel.light_width*loadmodel.light_height*3, "lightatlas");
 
 	lightmap_state lstate = (lightmap_state){.curh = 0, .mx = 0, .my = 0, .width = loadmodel.light_width, .height = loadmodel.light_height};
 
@@ -1324,7 +1335,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	};
 
 	Texture lightmapVRAM = LoadTextureFromImage(image);
-	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_TRILINEAR);
+	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_BILINEAR);
 	setTextureResource(lightmapVRAM, "\\light");
 
 	Hunk_FreeToLowMark(mark);
@@ -1557,7 +1568,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[0];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[0+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)lstate.width;
 			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
@@ -1573,7 +1584,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+2)*2];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)lstate.width;
 			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;
@@ -1589,7 +1600,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+1)*2];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)LIGHTMAP_WIDTH;
+			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)lstate.width;
 			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
 
 			idx++;

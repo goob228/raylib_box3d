@@ -10,6 +10,8 @@
 
 #include "Playground.h"
 
+#include "G_local.h"
+
 
 Vector3 gc_rotatedPos(Object* self, Vector3 pos)
 {
@@ -29,7 +31,8 @@ Vector3 gc_rotatedPos(Object* self, Vector3 pos)
 	return Vector3Add(outp, offset);
 }
 
-
+#define MYLERP(a, b, x) (a + x*(b-a))
+#define MYCLAMP(x) (x > 1 ? 1 : (x > 0 ? x : 0))
 
 void gc_update(struct Object* obj, Playground* playground)
 {
@@ -39,9 +42,13 @@ void gc_update(struct Object* obj, Playground* playground)
 	CameraData* camdata = (CameraData*)self->data;
 
 	if (camdata->camMode == CAMERA_CUSTOM) {
-		camdata->yaw -= playground->eh.mx * camdata->sensitivity;
-		camdata->pitch -= playground->eh.my * camdata->sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
-		camdata->pitch = Clamp(camdata->pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
+		camdata->wanna_yaw -= playground->eh.mx * camdata->sensitivity;
+		camdata->wanna_pitch -= playground->eh.my * camdata->sensitivity * (camdata->type == CAM_FIRST_PERSON ? -1.0f : 1.0f);
+		camdata->wanna_pitch = Clamp(camdata->wanna_pitch, -PI * 0.5f+0.01f, PI * 0.5f - 0.01f);
+		double dt = (double)GetFrameTime() * 22.0;
+		dt = (double)MYCLAMP(dt);
+		camdata->yaw = MYLERP(camdata->yaw, camdata->wanna_yaw, dt);
+		camdata->pitch = MYLERP(camdata->pitch, camdata->wanna_pitch, dt);
 		camdata->dist *= (1.0f - playground->eh.s*0.1f);
  		if (self->parent) {
 			self->parent->updateMatrix(self->parent);
@@ -131,7 +138,7 @@ void gc_init(Object* self)
 
 	camdata->cam.target = camdata->target;
 	camdata->cam.up = camdata->up;
-	camdata->cam.fovy = 90.0f;
+	camdata->cam.fovy = 110.0f;
 	camdata->cam.projection = CAMERA_PERSPECTIVE;
 
 	camdata->camMode = CAMERA_CUSTOM;
