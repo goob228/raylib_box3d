@@ -235,6 +235,9 @@ typedef struct {
 	int light_height;
 	unsigned char* lightTexture;
 
+	int num_lmshifts;
+	unsigned char* lmshifts;
+
 	bool lightOverflow;
 
 	char *entities;
@@ -242,6 +245,7 @@ typedef struct {
     bool isbsp2;
     bool ishlbsp;
 	bool isbsp2rmqe;
+	bool isbspx;
 
 
 } model_t;

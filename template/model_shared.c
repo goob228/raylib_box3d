@@ -20,7 +20,7 @@
 
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
-#define LM_SCALE (1.0f/16.0f)
+
 
 
 static model_t loadmodel;
@@ -45,6 +45,24 @@ typedef struct {
 typedef struct {
 	float x, y, z;
 } vec3;
+
+
+typedef struct {
+	char lumpname[24]; // up to 23 chars, zero-padded
+	int fileofs;  // from file start
+	int filelen;
+} bspx_lump_t;
+typedef struct {
+	char id[4];  // 'BSPX'
+	int numlumps;
+	bspx_lump_t lumps[1];
+} bspx_header_t;
+
+bspx_lump_t* BSPX_FindLump(bspx_header_t *bspxheader, char* lumpname);
+bspx_header_t *BSPX_Setup(char *filebase, size_t filelen, size_t lumpsEnd);
+
+void Mod_BSPX_LoadShifts(bspx_header_t *bspxheader, unsigned char* filedata);
+void Mod_BSPX_LoadRGBLighting(bspx_header_t *bspxheader, unsigned char* filedata);
 
 vec3 swapyz(vec3 p)
 {
@@ -895,7 +913,11 @@ static void Mod_Q1BSP_LoadLighting(sizebuf_t *sb)
 	char litfilename[MAX_QPATH];
 	char dlitfilename[MAX_QPATH];
 	int filesize;
-	if (loadmodel.ishlbsp) // LadyHavoc: load the colored lighting data straight
+	if (loadmodel.isbspx && loadmodel.lightdata)
+	{
+		return;
+	}
+	else if (loadmodel.ishlbsp) // LadyHavoc: load the colored lighting data straight
 	{
 		loadmodel.lightdata = (unsigned char *)Hunk_AllocNameNoFill(sb->cursize, "default hunk");
 		loadmodel.num_lightdata = sb->cursize;
@@ -1063,14 +1085,14 @@ int compareAtlases(const void* a, const void* b)
 	const atlase_t* at = *(const atlase_t**)a;
 	const atlase_t* bt = *(const atlase_t**)b;
 
-	return (at->wy - bt->wy);
+	return (bt->wy - at->wy);
 }
 
 static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 {
     int i, j, count, surfacenum, planenum, smax, tmax, ssize, tsize, firstedge, numedges, totalverts, totaltris, lightmapnumber, lightmapsize, totallightmapsamples, lightmapoffset, texinfoindex, textureindex;
     int structsize = loadmodel.isbsp2 ? 28 : 20;
-
+	unsigned short lmshift = 4;
     if (sb->cursize % structsize)
 		PRINT("Mod_Q1BSP_LoadFaces: funny lump size in %s",loadmodel.name);
     count = sb->cursize / structsize;
@@ -1083,6 +1105,12 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 	loadmodel.data_surfaces = (msurface_t *)Hunk_AllocName(loadmodel.num_surfaces*sizeof(msurface_t), "surfaces");
 
+	//loadmodel.lmshifts = NULL;
+	if (loadmodel.isbspx && loadmodel.lmshifts) {
+		if (loadmodel.num_surfaces != loadmodel.num_lmshifts) {
+			TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadFaces: num_surfaces %i and num_lmshifts %i dont match ", loadmodel.num_surfaces, loadmodel.num_lmshifts);
+		}
+	}
 	
 
     totalverts = 0;
@@ -1158,6 +1186,9 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			lightmapoffset = MSG_ReadLittleLong(sb)*3;
 		}
 
+		if (loadmodel.isbspx && loadmodel.lmshifts){
+			lmshift = (unsigned short)loadmodel.lmshifts[surfacenum];
+		}
 
 		// FIXME: validate edges, texinfo, etc?
 		if ((unsigned int) firstedge > (unsigned int) loadmodel.numsurfedges || (unsigned int) numedges > (unsigned int) loadmodel.numsurfedges || (unsigned int) firstedge + (unsigned int) numedges > (unsigned int) loadmodel.numsurfedges)
@@ -1259,11 +1290,10 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
                 
         }
 
-
-		int min_u_16 = (int)floorf(min_ucoord*LM_SCALE);
-		int max_u_16 = (int)ceilf(max_ucoord*LM_SCALE);
-		int min_v_16 = (int)floorf(min_vcoord*LM_SCALE);
-		int max_v_16 = (int)ceilf(max_vcoord*LM_SCALE);
+		int min_u_16 = (int)floorf(min_ucoord / (1<<lmshift));
+		int max_u_16 = (int)ceilf(max_ucoord / (1<<lmshift));
+		int min_v_16 = (int)floorf(min_vcoord / (1<<lmshift));
+		int max_v_16 = (int)ceilf(max_vcoord / (1<<lmshift));
 
 		int lm_w = (max_u_16 - min_u_16) + 1;
 		int lm_h = (max_v_16 - min_v_16) + 1;
@@ -1392,7 +1422,9 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			lightmapoffset = MSG_ReadLittleLong(sb)*3;
 		}
 
-		
+		if (loadmodel.isbspx && loadmodel.lmshifts){
+			lmshift = (unsigned short)loadmodel.lmshifts[surfacenum];
+		}
 
 
 		// FIXME: validate edges, texinfo, etc?
@@ -1491,11 +1523,12 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			texcoordsPerFace[i*2+1] *= inv_texHeight;
                 
         }
+		
 
-		int min_u_16 = (int)floorf(min_ucoord*LM_SCALE);
-		int max_u_16 = (int)ceilf(max_ucoord*LM_SCALE);
-		int min_v_16 = (int)floorf(min_vcoord*LM_SCALE);
-		int max_v_16 = (int)ceilf(max_vcoord*LM_SCALE);
+		int min_u_16 = (int)floorf(min_ucoord / (1<<lmshift));
+		int max_u_16 = (int)ceilf(max_ucoord / (1<<lmshift));
+		int min_v_16 = (int)floorf(min_vcoord / (1<<lmshift));
+		int max_v_16 = (int)ceilf(max_vcoord / (1<<lmshift));
 
 		int lm_w = (max_u_16 - min_u_16) + 1;
 		int lm_h = (max_v_16 - min_v_16) + 1;
@@ -1573,8 +1606,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[0+1];
 
 			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]*LM_SCALE + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0] / (1<<lmshift) + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
 			} else {
 				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
 				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
@@ -1594,8 +1627,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
 
 			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]*LM_SCALE + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2] / (1<<lmshift) + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
 			} else {
 				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
 				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
@@ -1616,8 +1649,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 
 			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]*LM_SCALE + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2] / (1<<lmshift) + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
 			} else {
 				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
 				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
@@ -1909,6 +1942,8 @@ static void Mod_Q1BSP_LoadNodes(sizebuf_t *sb)
 #define VectorSet(vec,x,y,z) ((vec)[0]=(x),(vec)[1]=(y),(vec)[2]=(z))
 #define VectorClear(a) ((a)[0]=(a)[1]=(a)[2]=0)
 
+#define MY_MAX(a, b) (a > b ? a : b)
+
 void loadBSP(model_t* mod, void* data, void* dataEnd)
 {
     int i, j, k;
@@ -1946,13 +1981,27 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 		VectorSet (hullinfo.hullsizes[2][1], 32, 32, 64);
 	}
 
+	size_t maxLumpEnd = 0;
+
     for (i = 0; i < HEADER_LUMPS; i++) {
         int offset = MSG_ReadLittleLong(&sb);
         int size = MSG_ReadLittleLong(&sb);
-        if (offset < 0 || offset + size > sb.cursize)
+		int lumpEnd = offset + size;
+        if (offset < 0 || lumpEnd > sb.cursize)
 			PRINT("loadBSP: has invalid lump %i (offset %i, size %i, file size %i)", i, offset, size, (int)sb.cursize);
+		maxLumpEnd = MY_MAX(maxLumpEnd, lumpEnd);
 		MSG_InitReadBuffer(&lumpsb[i], sb.data + offset, size);
 	}
+
+	bspx_header_t *bspx = BSPX_Setup(sb.data, sb.cursize, maxLumpEnd);
+
+
+	if (bspx){
+		loadmodel.isbspx = true;
+		Mod_BSPX_LoadShifts(bspx, sb.data);
+		Mod_BSPX_LoadRGBLighting(bspx, sb.data);
+	}
+		
     
 	Mod_Q1BSP_LoadEntities(&lumpsb[LUMP_ENTITIES]);
     Mod_Q1BSP_LoadVertexes(&lumpsb[LUMP_VERTEXES]);
@@ -1994,4 +2043,108 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
     memcpy(mod, &loadmodel, sizeof(*mod));
 
 
+}
+
+
+//supported lumps (read specs/bspx.txt for more details):
+//RGBLIGHTING (.lit)
+//LIGHTING_E5BGR9 (hdr lit)
+//LIGHTINGDIR (.lux)
+//LMSHIFT (lightmap scaling, obsoleted bby DECOUPLED_LM)
+//LMOFFSET (lightmap scaling, redundant without LMSHIFT)
+//LMSTYLE (for when 4 styles per face are not enough)
+//LMSTYLE16 (for when you need more than 256 different lightswitches)
+//VERTEXNORMALS (smooth specular)
+//BRUSHLIST (no hull size issues)
+//ENVMAP (cubemaps)
+//SURFENVMAP (cubemaps)
+//FACENORMALS (because Quetoo's normals were rejected by ericw for some reason)
+//DECOUPLED_LM (upgraded alternative to LM_SHIFT with float scaling and explicit lm sizes)
+//LIGHTGRID_OCTREE (lightgrid alternative to floor-based model lighting, but still stuck with 4 8bit ldr styles)
+
+bspx_lump_t* BSPX_FindLump(bspx_header_t *bspxheader, char* lumpname)
+{
+	int i;
+	if (!bspxheader)
+		return NULL;
+
+	for (i = 0; i < bspxheader->numlumps; i++)
+	{
+		if (!strncmp(bspxheader->lumps[i].lumpname, lumpname, 24))
+		{
+			
+			return bspxheader->lumps+i;
+		}
+	}
+	return NULL;
+}
+
+bspx_header_t *BSPX_Setup(char *filebase, size_t filelen, size_t lumpsEnd)
+{
+	size_t i;
+	size_t offs = lumpsEnd;
+	bspx_header_t *h;
+
+
+	offs = (offs + 3) & ~3;
+	if (offs + sizeof(*h) > filelen)
+		h = NULL; /*no space for it*/
+	else
+	{
+		h = (bspx_header_t*)(filebase + offs);
+
+		i = LittleLong(h->numlumps);
+		/*verify the header*/
+		if (*(int*)h->id != (('B'<<0)|('S'<<8)|('P'<<16)|('X'<<24)) ||
+			i < 0 ||
+			offs + sizeof(*h) + sizeof(h->lumps[0])*(i-1) > filelen)
+			h = NULL;
+		else
+		{
+			h->numlumps = i;
+			while(i-->0)
+			{
+				h->lumps[i].fileofs = LittleLong(h->lumps[i].fileofs);
+				h->lumps[i].filelen = LittleLong(h->lumps[i].filelen);
+				if (h->lumps[i].fileofs + h->lumps[i].filelen > filelen)
+					return NULL;	//some sort of corruption/truncation.
+
+				if (offs < h->lumps[i].fileofs + h->lumps[i].filelen)
+					offs = h->lumps[i].fileofs + h->lumps[i].filelen;
+			}
+		}
+	}
+
+
+	return h;
+}
+
+
+void Mod_BSPX_LoadShifts(bspx_header_t *bspxheader, unsigned char* filedata)
+{
+	bspx_lump_t* lump = BSPX_FindLump(bspxheader, "LMSHIFT");
+
+	if (lump) {
+		loadmodel.lmshifts = filedata + lump->fileofs;
+		loadmodel.num_lmshifts = lump->filelen;
+		PRINT("loaded BSPX lump: %s", lump->lumpname);
+	} else {
+		loadmodel.lmshifts = NULL;
+		loadmodel.num_lmshifts = 0;
+	}
+
+}
+
+void Mod_BSPX_LoadRGBLighting(bspx_header_t *bspxheader, unsigned char* filedata)
+{
+	bspx_lump_t* lump = BSPX_FindLump(bspxheader, "RGBLIGHTING");
+
+	if (lump) {
+		loadmodel.num_lightdata = lump->filelen;
+		loadmodel.lightdata = filedata + lump->fileofs;
+		PRINT("loaded BSPX lump: %s", lump->lumpname);
+	} else {
+		loadmodel.lightdata = NULL;
+		loadmodel.num_lightdata = 0;
+	}
 }
