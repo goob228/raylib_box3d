@@ -343,7 +343,7 @@ void initResources()
     UnloadImage(image);
 
     
-    loadMapResource("fall.bsp");
+    loadMapResource("qbj3_radiatoryang.bsp");
     
 
 }

@@ -125,7 +125,7 @@ void game_startLoop(struct Game* self)
 {
 	
 		
-	#define GAME_MEMORY_SIZE (128 * 1024 * 1024)
+	#define GAME_MEMORY_SIZE (32 * 1024 * 1024)
 
 	void* global_buffer = malloc(GAME_MEMORY_SIZE);
 

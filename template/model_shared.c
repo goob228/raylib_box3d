@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <float.h>
 
+#define STB_DXT_IMPLEMENTATION
+#include <stb_dxt.h>
 #include <raylib.h>
 
 #include "Zone.h"
@@ -32,6 +34,8 @@ static struct {mwad_t w[MAX_WAD_COUNT]; int numwads;} wads = {0};
 int model_shared_image_width, model_shared_image_height;
 
 unsigned char model_shared_texture_name[17];
+
+int pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 
 typedef struct {
 	int mx;
@@ -362,6 +366,8 @@ unsigned char *W_ConvertWAD2TextureRGBA(sizebuf_t *sb)
 		}
 		out += 4;
 	}
+
+	pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 	
 	return data;
 }
@@ -419,6 +425,106 @@ unsigned char *W_ConvertWAD3TextureRGBA(sizebuf_t *sb)
 			out[3] = 255;
 		}
 		out += 4;
+	}
+
+	pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+	
+	return data;
+}
+
+unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
+{
+	unsigned char *in, *data, *out, *pal;
+	int d, p;
+	unsigned char name[16];
+	unsigned int mipoffset[4];
+
+	MSG_BeginReading(sb);
+	MSG_ReadBytes(sb, 16, model_shared_texture_name);
+	model_shared_texture_name[16] = 0;
+	model_shared_image_width = MSG_ReadLittleLong(sb);
+	model_shared_image_height = MSG_ReadLittleLong(sb);
+	mipoffset[0] = MSG_ReadLittleLong(sb);
+	mipoffset[1] = MSG_ReadLittleLong(sb); // should be mipoffset[0] + model_shared_image_width*model_shared_image_height
+	mipoffset[2] = MSG_ReadLittleLong(sb); // should be mipoffset[1] + model_shared_image_width*model_shared_image_height/4
+	mipoffset[3] = MSG_ReadLittleLong(sb); // should be mipoffset[2] + model_shared_image_width*model_shared_image_height/16
+	//pal = sb->data + mipoffset[3] + (model_shared_image_width / 8 * model_shared_image_height / 8) + 2;
+	pal = (unsigned char*)Palette;
+
+	// bail if any data looks wrong
+	if (model_shared_image_width < 0
+	 || model_shared_image_width > 4096
+	 || model_shared_image_height < 0
+	 || model_shared_image_height > 4096
+	 || mipoffset[0] != 40
+	 || mipoffset[1] != mipoffset[0] + model_shared_image_width * model_shared_image_height
+	 || mipoffset[2] != mipoffset[1] + model_shared_image_width / 2 * model_shared_image_height / 2
+	 || mipoffset[3] != mipoffset[2] + model_shared_image_width / 4 * model_shared_image_height / 4) /// || (unsigned int)sb->cursize < (mipoffset[3] + model_shared_image_width / 8 * model_shared_image_height / 8 + 2 + 768) with pallete
+	{
+		TraceLog(LOG_WARNING, "model_shared.c: W_ConvertWAD3TextureBGRA: failed conditions, corrupted wad file");
+		return NULL;
+	}
+	int blockx = (model_shared_image_width+3)/4;
+	int blocky = (model_shared_image_height+3)/4;
+	in = (unsigned char *)sb->data + mipoffset[0];
+	data = out = (unsigned char*)Hunk_AllocNoFill(blockx * blocky * 8);
+	unsigned char src[4 * 4 * 4];
+
+	int add_alpha = 0;
+	
+
+	if (model_shared_texture_name[0] == '{') {
+		add_alpha = 1;
+	}
+
+	if (!data)
+		return NULL;
+
+	for (int by = 0; by < blocky; by++) {
+		for (int bx = 0; bx < blockx; bx++) {
+
+
+			for (int py = 0; py < 4; py++) {
+				int pixel_y = by * 4 + py;
+				if (pixel_y >= model_shared_image_height) pixel_y = model_shared_image_height-1;
+				for (int px = 0; px < 4; px++) {
+					int pixel_x = bx * 4 + px;
+					if (pixel_x >= model_shared_image_width) pixel_x = model_shared_image_width-1;
+					
+					int rgba_index = (pixel_y*model_shared_image_width + pixel_x);
+					int block_index = (py*4+px)*4;
+
+					if (in[rgba_index] == 255) {
+						src[block_index+0] = 0;
+						src[block_index+1] = 0;
+						src[block_index+2] = 0;
+						src[block_index+3] = 0;
+					} else {
+						src[block_index+0] = pal[in[rgba_index]*3+0];
+						src[block_index+1] = pal[in[rgba_index]*3+1];
+						src[block_index+2] = pal[in[rgba_index]*3+2];
+						src[block_index+3] = 255;
+					}
+
+					
+
+				}
+			}
+			if (add_alpha) {
+				stb_compress_dxt_block(out, src, 1, STB_DXT_NORMAL);
+			} else {
+				stb_compress_dxt_block(out, src, 0, STB_DXT_HIGHQUAL);
+			}
+				
+			out += 8;
+
+		}
+	}
+
+	pixel_format = PIXELFORMAT_COMPRESSED_DXT1_RGB;
+
+	if (add_alpha) {
+		pixel_format = PIXELFORMAT_COMPRESSED_DXT1_RGBA;
 	}
 	
 	return data;
@@ -836,15 +942,19 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 		int mark = Hunk_LowMark();
 		if (loadmodel.ishlbsp)
 			data = W_ConvertWAD3TextureRGBA(&miptexsb);
-		else 
-			data = W_ConvertWAD2TextureRGBA(&miptexsb);
+		else {
+			data = W_ConvertWAD2TextureDXT1(&miptexsb);
+			
+		}
+			
 
 		if (data) {
+
 			Image image = (Image){
 				.data = data,
 				.width = model_shared_image_width,
 				.height = model_shared_image_height,
-				.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+				.format = pixel_format,
 				.mipmaps = 1
 			};
 
