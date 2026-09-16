@@ -23,6 +23,19 @@ int host_netTPS = 60;
 
 static bool inMenu = 0;
 
+
+static void changeTPS(Cvar* cvar)
+{
+	host_netinterval = 1.0/cv_TPS.valuei;
+	host_netTPS = cv_TPS.valuei;
+}
+
+static void changeFPS(Cvar* cvar)
+{
+	SetTargetFPS(cv_FPS.valuei);
+}
+
+
 void game_quit(struct Game* self)
 {
 	
@@ -45,6 +58,10 @@ int game_init(struct Game* self)
 {
 	host_netinterval = 1.0/cv_TPS.valuei;
 	host_netTPS = cv_TPS.valuei;
+
+	setCvarCallback(&cv_TPS, changeTPS);
+	setCvarCallback(&cv_FPS, changeFPS);
+
 
 	self->running = false;
 	self->_windowhandler = (WindowHandler*)0;
@@ -116,7 +133,8 @@ void game_startLoop(struct Game* self)
 
 	Memory_Init(global_buffer, GAME_MEMORY_SIZE);
 
-	
+	initCvars();
+    initCmds();
 
 	if (game_init(self)) return;
 

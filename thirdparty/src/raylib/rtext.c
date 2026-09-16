@@ -417,9 +417,6 @@ Font LoadFontFromImage(Image image, Color key, int firstChar)
     int charSpacing = 0;
     int lineSpacing = 0;
 
-    int x = 0;
-    int y = 0;
-
     // Allocate a temporal arrays for glyphs data measures,
     // once the actual number of glyphs is obtained, copy data to a sized array
     int tempCharValues[MAX_GLYPHS_FROM_IMAGE] = { 0 };
@@ -428,6 +425,8 @@ Font LoadFontFromImage(Image image, Color key, int firstChar)
     Color *pixels = LoadImageColors(image);
 
     // Parse image data to get charSpacing and lineSpacing
+    int x = 0;
+    int y = 0;
     for (y = 0; y < image.height; y++)
     {
         for (x = 0; x < image.width; x++)
@@ -438,7 +437,12 @@ Font LoadFontFromImage(Image image, Color key, int firstChar)
         if (!COLOR_EQUAL(pixels[y*image.width + x], key)) break;
     }
 
-    if ((x == 0) || (y == 0)) return font; // Security check
+    // Security check
+    if ((x == 0) || (y == 0))
+    {
+        UnloadImageColors(pixels);
+        return font;
+    }
 
     charSpacing = x;
     lineSpacing = y;
@@ -713,7 +717,7 @@ GlyphInfo *LoadFontData(const unsigned char *fileData, int dataSize, int fontSiz
                         default: break;
                     }
 
-                    if (glyphs[k].image.data != NULL)    // Glyph data has been found in the font
+                    if (glyphs[k].image.data != NULL) // Glyph data has been found in the font
                     {
                         stbtt_GetCodepointHMetrics(&fontInfo, cp, &glyphs[k].advanceX, NULL);
                         glyphs[k].advanceX = (int)((float)glyphs[k].advanceX*scaleFactor);
@@ -845,7 +849,7 @@ Image GenImageFontAtlas(const GlyphInfo *glyphs, Rectangle **glyphRecs, int glyp
     // DEBUG: View padding in the generated image setting a gray background...
     //for (int i = 0; i < atlas.width*atlas.height; i++) ((unsigned char *)atlas.data)[i] = 100;
 
-    if (packMethod == 0)   // Use basic packing algorithm
+    if (packMethod == 0) // Use basic packing algorithm
     {
         int offsetX = padding;
         int offsetY = padding;
@@ -907,7 +911,7 @@ Image GenImageFontAtlas(const GlyphInfo *glyphs, Rectangle **glyphRecs, int glyp
             offsetX += (glyphs[i].image.width + 2*padding);
         }
     }
-    else if (packMethod == 1)  // Use Skyline rect packing algorithm (stb_pack_rect)
+    else if (packMethod == 1) // Use Skyline rect packing algorithm (stb_pack_rect)
     {
         stbrp_context *context = (stbrp_context *)RL_MALLOC(sizeof(*context));
         stbrp_node *nodes = (stbrp_node *)RL_MALLOC(glyphCount*sizeof(*nodes));
@@ -1860,7 +1864,7 @@ char *TextReplaceAlloc(const char *text, const char *search, const char *replace
         int tempLen = textLen + (replaceLen - searchLen)*count + 1;
         temp = result = (char *)RL_CALLOC(tempLen, sizeof(char));
 
-        if (result != NULL)   // Memory was allocated
+        if (result != NULL) // Memory was allocated
         {
             // First time through the loop, all the variable are set correctly from here on,
             //  - 'temp' points to the end of the result string
@@ -2078,7 +2082,8 @@ char **TextSplit(const char *text, char delimiter, int *count)
         counter = 1;
 
         // Count how many substrings ar found on text and set pointers to every one
-        for (int i = 0; i < MAX_TEXT_BUFFER_LENGTH; i++)
+        // NOTE: Last buffer byte is reserved to terminate the last substring
+        for (int i = 0; i < MAX_TEXT_BUFFER_LENGTH - 1; i++)
         {
             buffer[i] = text[i];
             if (buffer[i] == '\0') break;
@@ -2182,9 +2187,11 @@ char *TextToPascal(const char *text)
             if (text[j] != '_') buffer[i] = text[j];
             else
             {
-                j++;
+                while (text[j] == '_') j++;     // Skip one or more separators
+                if (text[j] == '\0') break;     // Text ends on a separator, nothing left to copy
+
                 if ((text[j] >= 'a') && (text[j] <= 'z')) buffer[i] = text[j] - 32;
-                else if ((text[j] >= '0') && (text[j] <= '9')) buffer[i] = text[j];
+                else buffer[i] = text[j];       // Character can not be upper-cased, copy it as is
             }
         }
     }
@@ -2264,8 +2271,11 @@ char *TextToCamel(const char *text)
             if (text[j] != '_') buffer[i] = text[j];
             else
             {
-                j++;
+                while (text[j] == '_') j++;     // Skip one or more separators
+                if (text[j] == '\0') break;     // Text ends on a separator, nothing left to copy
+
                 if ((text[j] >= 'a') && (text[j] <= 'z')) buffer[i] = text[j] - 32;
+                else buffer[i] = text[j];       // Character can not be upper-cased, copy it as is
             }
         }
     }
@@ -2736,7 +2746,7 @@ static Font LoadBMFont(const char *fileName)
                        &charId, &charX, &charY, &charWidth, &charHeight, &charOffsetX, &charOffsetY, &charAdvanceX, &pageID);
         fileTextPtr += (readBytes + 1);
 
-        if (readVars == 9)  // Make sure all char data has been properly read
+        if (readVars == 9) // Make sure all char data has been properly read
         {
             // Get character rectangle in the font atlas texture
             font.recs[i] = (Rectangle){ (float)charX, (float)charY + (float)imHeight*pageID, (float)charWidth, (float)charHeight };

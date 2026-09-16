@@ -437,7 +437,7 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 		float zeta = 0.7f;
 		float hertz = 4.0f;
 		float omega = 2.0f * B3_PI * hertz;
-		float omegaH = omega * timeStep;
+		float omegaH = omega * (1.0f / 60.0f); // there was omega * timestep but i couldnt figure out how to fix deffirent height at different
 		float prevPogoVelocity = data->pogoVelocity;
 		data->pogoVelocity = ( data->pogoVelocity - omega * omegaH * ( pogoCurrentLength - pogoRestLength ) ) /
 						 ( 1.0f + 2.0f * zeta * omegaH + omegaH * omegaH );

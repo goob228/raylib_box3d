@@ -9,11 +9,12 @@
 
 
 
-Cvar cv_width =     {"width",     "width of screen",          "1200",     ACCESS_CLIENT,      CV_INT,     .valuei = 1200,    .dvaluei = 1200,     NULL};
-Cvar cv_height =    {"height",    "height of screen",         "800",      ACCESS_CLIENT,      CV_INT,     .valuei = 800,     .dvaluei = 800,      NULL};
-Cvar cv_vsync =     {"vsync",     "vsync toggle",             "1",        ACCESS_SERVER,      CV_BOOL,    .valueb = true,    .dvalueb = true,     NULL};
-Cvar cv_FPS =       {"FPS",       "frames per second",        "60",       ACCESS_SERVER,      CV_INT,     .valuei = 120,      .dvaluei = 120,       NULL};
-Cvar cv_TPS =       {"TPS",       "game ticks per second",    "20",       ACCESS_SERVER,      CV_INT,     .valuei = 30,      .dvaluei = 30,       NULL};
+Cvar cv_width =     {"width",     "width of screen",          "1200",       ACCESS_CLIENT,          CV_INT};
+Cvar cv_height =    {"height",    "height of screen",         "800",        ACCESS_CLIENT,          CV_INT};
+Cvar cv_vsync =     {"vsync",     "vsync toggle",             "1",          ACCESS_SERVER,          CV_BOOL};
+Cvar cv_FPS =       {"FPS",       "frames per second",        "170",        ACCESS_SERVER,          CV_INT};
+Cvar cv_TPS =       {"TPS",       "game ticks per second",    "50",         ACCESS_SERVER,          CV_INT};
+Cvar cv_wireframe = {"wire",      "enable wireframe mode",    "0",          ACCESS_SERVER,          CV_BOOL};
 
 void printCvar(Cvar* cvar)
 {
@@ -36,6 +37,46 @@ void printCvar(Cvar* cvar)
             TraceLog(LOG_NONE, "%s: %s; value: %s", cvar->name, cvar->description, cvar->value);
             break;
         }
+}
+
+void parseCvarValues(Cvar* curvar, char* word)
+{
+    if (word[0]) {
+        char* endptr = NULL;
+        switch (curvar->value_type)
+        {
+        case CV_BOOL:
+            if ((word[0] == '1' || word[0] == '0') && word[1] == 0) {
+                bool new = (word[0] == '1') ? true : false;
+                setCvarValue(curvar, (Cvar_value){.valb = new});
+            }
+            break;
+
+        case CV_FLOAT:
+            char* endptr1 = word;
+            float newf = strtof(word, &endptr1);
+            if (*endptr1 == 0) {
+                setCvarValue(curvar, (Cvar_value){.valf = newf});
+            }
+            break;
+
+        case CV_INT:
+            char* endptr2 = word;
+            
+            int newi = (int)strtol(word, &endptr2, 10);
+            if (*endptr2 == 0) {
+                setCvarValue(curvar, (Cvar_value){.vali = newi});
+            }
+            break;
+
+        case CV_STRING:
+            strncpy(curvar->value, word, CVAR_STRING_SIZE);
+            break;
+        
+        default:
+            break;
+        }
+    }
 }
 
 Cvar* getFirstCvar()
@@ -88,5 +129,32 @@ void initCvars(){
     cv_height.next = &cv_vsync;
     cv_vsync.next = &cv_FPS;
     cv_FPS.next = &cv_TPS;
-    cv_TPS.next = NULL;
+    cv_TPS.next = &cv_wireframe;
+    
+
+
+    Cvar* curvar = getFirstCvar();
+    
+    do {
+        parseCvarValues(curvar, curvar->value);
+        switch (curvar->value_type)
+        {
+        case CV_BOOL:
+            curvar->dvalueb = curvar->valueb;
+            break;
+
+        case CV_FLOAT:
+            curvar->dvaluef = curvar->valuef;
+            break;
+
+        case CV_INT:
+            curvar->dvaluei = curvar->valuei;
+            break;
+        
+        default:
+            break;
+        }
+
+    } while (curvar = curvar->next);
+
 }

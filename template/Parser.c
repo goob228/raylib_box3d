@@ -68,44 +68,7 @@ void parseString(const char* text, size_t len)
     
     do {
         if (strncmp(curvar->name, sent[0], LINE_SIZE) == 0) {
-            if (sent[1][0]) {
-                char* endptr = NULL;
-                switch (curvar->value_type)
-                {
-                case CV_BOOL:
-                    if ((sent[1][0] == '1' || sent[1][0] == '0') && sent[1][1] == 0) {
-                        bool new = (sent[1][0] == '1') ? true : false;
-                        setCvarValue(curvar, (Cvar_value){.valb = new});
-                    }
-                    break;
-
-                case CV_FLOAT:
-                    char* endptr1 = sent[1];
-                    float newf = strtof(sent[1], &endptr1);
-                    if (*endptr1 == 0) {
-                        setCvarValue(curvar, (Cvar_value){.valf = newf});
-                    }
-                    break;
-
-                case CV_INT:
-                    char* endptr2 = sent[1];
-                    
-                    int newi = (int)strtol(sent[1], &endptr2, 10);
-                    if (*endptr2 == 0) {
-                        setCvarValue(curvar, (Cvar_value){.vali = newi});
-                    }
-                    break;
-
-                case CV_STRING:
-                    strncpy(curvar->value, sent[1], CVAR_STRING_SIZE);
-                    break;
-                
-                default:
-                    TraceLog(LOG_ERROR, "Parser.c: invalid values in %s", text);
-                    return;
-                    break;
-                }
-            }
+            parseCvarValues(curvar, sent[1]);
             printCvar(curvar);
             return;
         }

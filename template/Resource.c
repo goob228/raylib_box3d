@@ -311,7 +311,7 @@ void initResources()
     resources[0].model = LoadModelFromMesh(GenMeshCube(5.0f, 5.0f, 5.0f));
     resources[0].occupied = true;
 
-    loadPalette("res/palette.lmp");
+    //loadPalette("res/palette.lmp");
 
     FilePathList files = LoadDirectoryFiles("res");
 
@@ -343,7 +343,7 @@ void initResources()
     UnloadImage(image);
 
     
-    loadMapResource("ocean.bsp");
+    loadMapResource("fall.bsp");
     
 
 }

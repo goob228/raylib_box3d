@@ -14,11 +14,13 @@
 #include "G_local.h"
 #include "Resource.h"
 
+#include "QuakePalette.h"
+
 #define PRINT(val, ...) TraceLog(LOG_WARNING, "model_shared.c: " val, ##__VA_ARGS__)
 
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
-
+#define LM_SCALE (1.0f/16.0f)
 
 
 static model_t loadmodel;
@@ -30,11 +32,6 @@ static struct {mwad_t w[MAX_WAD_COUNT]; int numwads;} wads = {0};
 int model_shared_image_width, model_shared_image_height;
 
 unsigned char model_shared_texture_name[17];
-
-static struct { unsigned char R; unsigned char G; unsigned char B;} Palette[256] = {0};
-
-static struct { unsigned char R; unsigned char G; unsigned char B;} MutablePalette[256] = {0};
-
 
 typedef struct {
 	int mx;
@@ -1263,10 +1260,10 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
         }
 
 
-		int min_u_16 = (int)floorf(min_ucoord/16.0f);
-		int max_u_16 = (int)ceilf(max_ucoord/16.0f);
-		int min_v_16 = (int)floorf(min_vcoord/16.0f);
-		int max_v_16 = (int)ceilf(max_vcoord/16.0f);
+		int min_u_16 = (int)floorf(min_ucoord*LM_SCALE);
+		int max_u_16 = (int)ceilf(max_ucoord*LM_SCALE);
+		int min_v_16 = (int)floorf(min_vcoord*LM_SCALE);
+		int max_v_16 = (int)ceilf(max_vcoord*LM_SCALE);
 
 		int lm_w = (max_u_16 - min_u_16) + 1;
 		int lm_h = (max_v_16 - min_v_16) + 1;
@@ -1309,7 +1306,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	
 	loadmodel.light_width = power_of_two;
 	loadmodel.light_height = power_of_two*2;
-	loadmodel.lightTexture = (unsigned char*)Hunk_AllocNameNoFill(loadmodel.light_width*loadmodel.light_height*3, "lightatlas");
+	loadmodel.lightTexture = (unsigned char*)Hunk_AllocName(loadmodel.light_width*loadmodel.light_height*3, "lightatlas");
 
 	lightmap_state lstate = (lightmap_state){.curh = 0, .mx = 0, .my = 0, .width = loadmodel.light_width, .height = loadmodel.light_height};
 
@@ -1317,11 +1314,17 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	atlase_t* temp = NULL;
 	int latlasX = 0;
 	int latlasY = 0;
+	putInAtlas(&lstate, 10, 10, &(latlasX), &(latlasY));
 	for (surfacenum = 0; surfacenum < count; surfacenum++) {
 		temp = atindexes[surfacenum];
-		if (temp->wx){
+		if (temp->offset >= 0){
 			putInAtlas(&lstate, temp->wx, temp->wy, &(temp->ax), &(temp->ay));
 			putToAtlasTexture(temp->wx, temp->wy, temp->ax, temp->ay, temp->offset);
+		} else {
+			temp->ax = latlasX;
+			temp->ay = latlasY;
+			temp->wx = 10;
+			temp->wy = 10;
 		}
 			
 	}
@@ -1334,8 +1337,10 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		.mipmaps = 1
 	};
 
+
 	Texture lightmapVRAM = LoadTextureFromImage(image);
-	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_BILINEAR);
+	//GenTextureMipmaps(&lightmapVRAM);
+	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_TRILINEAR);
 	setTextureResource(lightmapVRAM, "\\light");
 
 	Hunk_FreeToLowMark(mark);
@@ -1487,10 +1492,10 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
                 
         }
 
-		int min_u_16 = (int)floorf(min_ucoord/16.0f);
-		int max_u_16 = (int)ceilf(max_ucoord/16.0f);
-		int min_v_16 = (int)floorf(min_vcoord/16.0f);
-		int max_v_16 = (int)ceilf(max_vcoord/16.0f);
+		int min_u_16 = (int)floorf(min_ucoord*LM_SCALE);
+		int max_u_16 = (int)ceilf(max_ucoord*LM_SCALE);
+		int min_v_16 = (int)floorf(min_vcoord*LM_SCALE);
+		int max_v_16 = (int)ceilf(max_vcoord*LM_SCALE);
 
 		int lm_w = (max_u_16 - min_u_16) + 1;
 		int lm_h = (max_v_16 - min_v_16) + 1;
@@ -1501,7 +1506,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 		latlasX = loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].ax;
 		latlasY = loadmodel.mesh[0].atlases[loadmodel.mesh[0].num_firstface].ay;
-
 
 
 
@@ -1568,8 +1572,13 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[0];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[0+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]/16.0f + 0.5f) / (float)lstate.width;
-			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+			if (lightmapoffset >= 0) {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0]*LM_SCALE + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+			} else {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
+			}
 
 			idx++;
 			
@@ -1584,8 +1593,13 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+2)*2];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]/16.0f + 0.5f) / (float)lstate.width;
-			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+			if (lightmapoffset >= 0) {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2]*LM_SCALE + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+			} else {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
+			}
 
 			idx++;
 
@@ -1600,8 +1614,14 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+1)*2];
 			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
 
-			loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]/16.0f + 0.5f) / (float)lstate.width;
-			loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]/16.0f + 0.5f) / (float)(lstate.my + lstate.curh);
+
+			if (lightmapoffset >= 0) {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2]*LM_SCALE + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1]*LM_SCALE + 0.5f) / (float)(lstate.my + lstate.curh);
+			} else {
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
+			}
 
 			idx++;
 
@@ -1943,12 +1963,12 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 	Mod_Q1BSP_LoadLighting(&lumpsb[LUMP_LIGHTING]);
 	Mod_Q1BSP_LoadPlanes(&lumpsb[LUMP_PLANES]);
     Mod_Q1BSP_LoadFaces(&lumpsb[LUMP_FACES]);
-	Mod_Q1BSP_LoadLeaffaces(&lumpsb[LUMP_MARKSURFACES]);
-	Mod_Q1BSP_LoadVisibility(&lumpsb[LUMP_VISIBILITY]);
+	//Mod_Q1BSP_LoadLeaffaces(&lumpsb[LUMP_MARKSURFACES]);
+	//Mod_Q1BSP_LoadVisibility(&lumpsb[LUMP_VISIBILITY]);
 	// load submodels before leafs because they contain the number of vis leafs
 	Mod_BSP_LoadSubmodels(&lumpsb[LUMP_MODELS], &hullinfo);
-	Mod_Q1BSP_LoadLeafs(&lumpsb[LUMP_LEAFS]);
-	Mod_Q1BSP_LoadNodes(&lumpsb[LUMP_NODES]);
+	//Mod_Q1BSP_LoadLeafs(&lumpsb[LUMP_LEAFS]);
+	//Mod_Q1BSP_LoadNodes(&lumpsb[LUMP_NODES]);
 
     PRINT("num of edges %i", loadmodel.numedges);
     PRINT("num of surfedges %i", loadmodel.numsurfedges);

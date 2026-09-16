@@ -774,7 +774,7 @@ SWAPI void swGetFramebufferAttachmentParameteriv(SWattachment attachment, SWatta
 // Simple log system to avoid printf() calls if required
 // NOTE: Avoiding those calls, also avoids const strings memory usage
 #define RLSW_SUPPORT_LOG_INFO
-#if defined(RLSW_SUPPORT_LOG_INFO) //&& defined(_DEBUG)      // WARNING: LOG() output required for this tool
+#if defined(RLSW_SUPPORT_LOG_INFO)
     #include <stdio.h>
     #define SW_LOG(...) printf(__VA_ARGS__)
 #else
@@ -2524,7 +2524,7 @@ static void sw_default_framebuffer_free(sw_default_framebuffer_t *fb)
 {
     sw_texture_free(&fb->color);
     sw_texture_free(&fb->depth);
-#ifdef RLSW_DOUBLE_BUFFERING
+#if RLSW_DOUBLE_BUFFERING
     sw_texture_free(&fb->backColor);
 #endif
 }

@@ -14,14 +14,12 @@ static void toggleVsync(Cvar* cvar)
 {	
 	
 	if (cvar->valueb == true)
-		if (IsWindowReady())
-			SetWindowState(FLAG_VSYNC_HINT);
-		else 
-			SetConfigFlags(FLAG_VSYNC_HINT);
+		SetWindowState(FLAG_VSYNC_HINT);
 
 		
 	else if (cvar->valueb == false)
 		ClearWindowState(FLAG_VSYNC_HINT);
+		
 }
 
 static void changeWidthHeight(Cvar* cvar)
@@ -33,7 +31,7 @@ static void changeWidthHeight(Cvar* cvar)
 void wh_startFrame(struct WindowHandler* self)
 {
 	BeginDrawing();
-	ClearBackground(SKYBLUE);
+	ClearBackground(BLACK);
 }
 
 void wh_endFrame(struct WindowHandler* self)
@@ -64,9 +62,9 @@ void wh_init(struct WindowHandler* self, int FPS)
 	setCvarCallback(&cv_width, changeWidthHeight);
 	setCvarCallback(&cv_height, changeWidthHeight);
 	
-	SetConfigFlags(FLAG_MSAA_4X_HINT); 
+	//SetConfigFlags(FLAG_MSAA_4X_HINT); 
 	InitWindow(self->screenWidth, self->screenHeight, "template");
-	//SetTargetFPS(cv_FPS.valuei);
+	SetTargetFPS(cv_FPS.valuei);
 
 	SetExitKey(KEY_NULL);
 	DisableCursor();

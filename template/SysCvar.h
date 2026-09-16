@@ -56,6 +56,8 @@ typedef struct Cvar {
 
 Cvar* getFirstCvar();
 
+void parseCvarValues(Cvar* curvar, char* word);
+
 void setCvarValue(Cvar* cvar, Cvar_value v_u);
 
 void printCvar(Cvar* cvar);
@@ -69,6 +71,7 @@ extern Cvar cv_height;
 extern Cvar cv_vsync;
 extern Cvar cv_FPS;
 extern Cvar cv_TPS;
+extern Cvar cv_wireframe;
 
 
 #endif //SYSCVAR_H

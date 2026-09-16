@@ -19,6 +19,7 @@
 
 #include "Prefabs.h"
 #include "G_local.h"
+#include "SysCvar.h"
 
 
 Object objects[MAX_OBJECTS] = {0};
@@ -229,12 +230,23 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 {
 	((CameraData*)camera.data)->startFrame(&camera);
 
+	if (cv_wireframe.valueb) {
+		rlEnableWireMode();
+		rlDisableBackfaceCulling();
+	}
+	
 
 	for (int i = 1; i < objectCount; i++) {
 		if (objects[i].onRemove != true) {
 			objects[i].draw(&objects[i], self);
 		}
 	}
+
+	if (cv_wireframe.valueb) {
+		rlEnableBackfaceCulling();
+		rlDisableWireMode();
+	}
+	
 
 	Vector3 spos = (Vector3){ 0 };
 	Vector3 epos = (Vector3){ 0 };
@@ -261,7 +273,7 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 
 	//Texture tex = getTextureResource(&key);
 
-	//DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.5f*1024.0f/(float)tex.width), WHITE);
+	//DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.25f*1024.0f/(float)tex.width), WHITE);
 
 }
 
