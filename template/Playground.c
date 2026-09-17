@@ -138,7 +138,7 @@ void pg_init(struct Playground* self, int targetFPS)
 	self->update = (&pg_update);
 	self->cleanUp = (&pg_cleanUp);
 
-	for (int i = 0; i < MAX_SPRINGS; i++) {
+	for (int i = 0; i < MAX_OBJECTS; i++) {
 		objects[i].onRemove = true;
 	}
 
@@ -269,11 +269,11 @@ void pg_render(struct Playground* self, WindowHandler* windowhandler)
 	EndShaderMode();
 	((CameraData*)camera.data)->endFrame(&camera);
 
-	//Resource_key key = loadTextureResource("\\light");
+	Resource_key key = loadTextureResource("\\light");
 
-	//Texture tex = getTextureResource(&key);
+	Texture tex = getTextureResource(&key);
 
-	//DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.25f*1024.0f/(float)tex.width), WHITE);
+	DrawTextureEx(tex, (Vector2){0.0f, 0.0f}, 0.0f, (0.25f*1024.0f/(float)tex.width), WHITE);
 
 }
 
@@ -286,5 +286,6 @@ void pg_cleanUp(struct Playground* self)
 	//b3SaveRecordingToFile( recording, "session.b3rec" ); 
 	//b3DestroyRecording( recording );
 	
+	memset(objects, 0, sizeof(objects));
 
 }

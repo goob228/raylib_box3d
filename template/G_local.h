@@ -40,7 +40,6 @@ extern Playground* g_playground;
 extern model_t g_mapModel;
 
 extern char* spawnVars[MAX_SPAWN_VARS][2];
-extern int numSpawnVars;
 
 extern double alphaBlend;
 extern double host_netinterval;

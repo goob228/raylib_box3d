@@ -30,6 +30,7 @@ Shader discard_shader = {0};
 
 Shader skybox_shader = {0};
 
+int beforeMapMark = 0;
 
 typedef struct {
     char name[RESOURCE_NAME_SIZE];
@@ -342,13 +343,30 @@ void initResources()
     setTextureResource(LoadTextureCubemap(image, CUBEMAP_LAYOUT_AUTO_DETECT), "\\sky");
     UnloadImage(image);
 
-    
+    beforeMapMark = Hunk_LowMark();
     loadMapResource("qbj3_radiatoryang.bsp");
     
 
 }
 
-
+void unloadMapResource()
+{
+    for (int i = 1; i < RESOURCES_SIZE; i++) {
+        if (resources[i].occupied && resources[i].usage == MAP_USAGE) {
+            switch (resources[i].type) {
+                case RES_TEXTURE:
+                    UnloadTexture(resources[i].texture);
+                    break;
+                case RES_MODEL:
+                    UnloadModel(resources[i].model);
+                    break;
+                default:
+                    break;
+            }
+            memset(resources + i, 0, sizeof(Resource));
+        }
+    }
+}
 
 Resource_key loadTextureResource(const char* name)
 {
@@ -518,6 +536,7 @@ void setUsageResource(Resource_key* key, int usage)
 
 void clearResources()
 {
+    unloadMapResource();
     Model model = (Model){0};
     Texture texture = (Texture){0};
     for (int i = 0; i < RESOURCES_SIZE; i++) {
@@ -554,7 +573,7 @@ void clearResources()
         }
     }
 
-    Hunk_FreeToLowMark(0);
+    Hunk_FreeToLowMark(beforeMapMark);
 
     if (b3World_IsValid(g_worldid)) {
         b3DestroyWorld(g_worldid);
