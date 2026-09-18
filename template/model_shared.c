@@ -748,6 +748,9 @@ static void Mod_Q1BSP_LoadEntities(sizebuf_t *sb)
 	//Hunk_FreeToLowMark(beforemark);
 }
 
+#define MY_MAX(a, b) (a > b ? a : b)
+#define MY_MIN(a, b) (a < b ? a : b)
+
 static void Mod_Q1BSP_LoadVertexes(sizebuf_t *sb)
 {
 	float* out;
@@ -762,11 +765,28 @@ static void Mod_Q1BSP_LoadVertexes(sizebuf_t *sb)
 	loadmodel.vertices = out;
 	loadmodel.vertexCount = count;
 
+	loadmodel.aabb[0][0] = FLT_MAX;
+	loadmodel.aabb[0][1] = FLT_MAX;
+	loadmodel.aabb[0][2] = FLT_MAX;
+	
+	loadmodel.aabb[1][0] = -FLT_MAX;
+	loadmodel.aabb[1][1] = -FLT_MAX;
+	loadmodel.aabb[1][2] = -FLT_MAX;
+
 	for ( i=0 ; i<count ; i++)
 	{
 		out[0] = -MSG_ReadLittleFloat(sb) * MULTIPLIER;
 		out[2] = MSG_ReadLittleFloat(sb) * MULTIPLIER; // we should swap Y and Z axis for raylib, cause in quake Z points up
 		out[1] = MSG_ReadLittleFloat(sb) * MULTIPLIER;
+
+		loadmodel.aabb[0][0] = MY_MIN(loadmodel.aabb[0][0], out[0]);
+		loadmodel.aabb[0][1] = MY_MIN(loadmodel.aabb[0][1], out[1]);
+		loadmodel.aabb[0][2] = MY_MIN(loadmodel.aabb[0][2], out[2]);
+
+		loadmodel.aabb[1][0] = MY_MAX(loadmodel.aabb[1][0], out[0]);
+		loadmodel.aabb[1][1] = MY_MAX(loadmodel.aabb[1][1], out[1]);
+		loadmodel.aabb[1][2] = MY_MAX(loadmodel.aabb[1][2], out[2]);
+
 		out++;
 		out++;
 		out++;
@@ -1318,7 +1338,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
         int num_triangles = numedges - 2;
 
 		loadmodel.mesh[0].triangleCount += num_triangles;
-		
+		loadmodel.mesh[0].vertexCount += num_vertices;
 
         totalverts += numedges;
 		totaltris += numedges - 2;
@@ -1495,7 +1515,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 	loadmodel.mesh[0].num_firstface = 0;
 	if (loadmodel.mesh[0].triangleCount) {
-		loadmodel.mesh[0].vertexCount = loadmodel.mesh[0].triangleCount*3;
 		loadmodel.mesh[0].vertices = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*3*4, "vertices");
 		loadmodel.mesh[0].normals = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*3*4, "normals");
 		loadmodel.mesh[0].texcoords = (float*)Hunk_AllocNameNoFill(loadmodel.mesh[0].vertexCount*2*4, "texcoords");
@@ -1682,27 +1701,23 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		surface->num_firsttriangle = loadmodel.mesh[0].num_firsttriangle;
 		surface->num_firstvertex = loadmodel.mesh[0].num_firstvertex;
 		surface->num_triangles = num_triangles;
-		surface->num_vertices = num_triangles*3;
+		surface->num_vertices = num_vertices;
 		surface->included = false;
 
-		int triangleIndex = 0;
 
 		int idx = 0;
 
 		
 
-        for (i = 0;i < num_triangles;i++)
+        for (i = 0;i < num_vertices;i++)
 		{
-			triangleIndex = loadmodel.mesh[0].num_firsttriangle+i;
+
 			idx = loadmodel.mesh[0].num_firstvertex;
 
-			p3.x = loadmodel.vertices[verticesPerFace[i+1]*3];
-			p3.y = loadmodel.vertices[verticesPerFace[i+1]*3+1];
-			p3.z = loadmodel.vertices[verticesPerFace[i+1]*3+2];
+			p1.x = loadmodel.vertices[verticesPerFace[i]*3];
+			p1.y = loadmodel.vertices[verticesPerFace[i]*3+1];
+			p1.z = loadmodel.vertices[verticesPerFace[i]*3+2];
 
-			p2.x = loadmodel.vertices[verticesPerFace[i+2]*3];
-			p2.y = loadmodel.vertices[verticesPerFace[i+2]*3+1];
-			p2.z = loadmodel.vertices[verticesPerFace[i+2]*3+2];
 
             loadmodel.mesh[0].vertices[idx*3] = p1.x;
             loadmodel.mesh[0].vertices[idx*3+1] = p1.y;
@@ -1712,12 +1727,12 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			loadmodel.mesh[0].normals[idx*3+1] = normal.y;
 			loadmodel.mesh[0].normals[idx*3+2] = normal.z;
 
-			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[0];
-			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[0+1];
+			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[i*2];
+			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[i*2+1];
 
 			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[0] / (1<<lmshift) + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[0+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
+				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[i*2] / (1<<lmshift) + 0.5f) / (float)lstate.width;
+				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[i*2+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
 			} else {
 				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
 				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
@@ -1725,48 +1740,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 			idx++;
 			
-            loadmodel.mesh[0].vertices[idx*3] = p2.x;
-            loadmodel.mesh[0].vertices[idx*3+1] = p2.y;
-            loadmodel.mesh[0].vertices[idx*3+2] = p2.z;
-
-			loadmodel.mesh[0].normals[idx*3] = normal.x;
-            loadmodel.mesh[0].normals[idx*3+1] = normal.y;
-            loadmodel.mesh[0].normals[idx*3+2] = normal.z;
-
-			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+2)*2];
-			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+2)*2+1];
-
-			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+2)*2] / (1<<lmshift) + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+2)*2+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
-			} else {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
-			}
-
-			idx++;
-
-            loadmodel.mesh[0].vertices[idx*3] = p3.x;
-            loadmodel.mesh[0].vertices[idx*3+1] = p3.y;
-            loadmodel.mesh[0].vertices[idx*3+2] = p3.z;
-
-            loadmodel.mesh[0].normals[idx*3] = normal.x;
-            loadmodel.mesh[0].normals[idx*3+1] = normal.y;
-            loadmodel.mesh[0].normals[idx*3+2] = normal.z;
-
-			loadmodel.mesh[0].texcoords[idx*2+0] = texcoordsPerFace[(i+1)*2];
-			loadmodel.mesh[0].texcoords[idx*2+1] = texcoordsPerFace[(i+1)*2+1];
-
-
-			if (lightmapoffset >= 0) {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX + texcoords2PerFace[(i+1)*2] / (1<<lmshift) + 0.5f) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY + texcoords2PerFace[(i+1)*2+1] / (1<<lmshift) + 0.5f) / (float)(lstate.my + lstate.curh);
-			} else {
-				loadmodel.mesh[0].texcoords2[idx*2+0] = (latlasX) / (float)lstate.width;
-				loadmodel.mesh[0].texcoords2[idx*2+1] = (latlasY) / (float)(lstate.my + lstate.curh);
-			}
-
-			idx++;
 
 			loadmodel.mesh[0].num_firstvertex = idx;
 			
@@ -2052,7 +2025,7 @@ static void Mod_Q1BSP_LoadNodes(sizebuf_t *sb)
 #define VectorSet(vec,x,y,z) ((vec)[0]=(x),(vec)[1]=(y),(vec)[2]=(z))
 #define VectorClear(a) ((a)[0]=(a)[1]=(a)[2]=0)
 
-#define MY_MAX(a, b) (a > b ? a : b)
+
 
 void loadBSP(model_t* mod, void* data, void* dataEnd)
 {

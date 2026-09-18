@@ -191,6 +191,8 @@ typedef struct {
     float *vertices; 
     int vertexCount;   
 
+	float aabb[2][3];
+
 	int* indices;
 	int triangleCount;
 

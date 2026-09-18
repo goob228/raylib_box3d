@@ -46,113 +46,64 @@ typedef struct {
 
 static Resource resources[RESOURCES_SIZE] = {0};
 
-/*
-Model LoadModelFromModel_t(model_t* mt)
+#define MAX_UNSIGNED_SHORT 65535
+
+#define OCTREE_DEEP 4
+
+#define MY_MAX(a, b) (a > b ? a : b)
+#define MY_MIN(a, b) (a < b ? a : b)
+
+typedef struct OctreeNode OctreeNode;
+
+typedef struct OctreeNode {
+    BoundingBox box;
+    int* triangle_indices;
+    int triangle_count;
+    Mesh* mesh;
+    OctreeNode* children[8];
+    bool is_leaf;
+} OctreeNode;
+
+
+bool IsTriangleInsideBox(float p1[3], float p2[3], float p3[3], BoundingBox* box) 
 {
-	int numofmeshes = 0;
+    float min[3] = {MY_MIN(MY_MIN(p1[0], p2[0]), p3[0]), MY_MIN(MY_MIN(p1[1], p2[1]), p3[1]), MY_MIN(MY_MIN(p1[2], p2[2]), p3[2])};
+    float max[3] = {MY_MAX(MY_MAX(p1[0], p2[0]), p3[0]), MY_MAX(MY_MAX(p1[1], p2[1]), p3[1]), MY_MAX(MY_MAX(p1[2], p2[2]), p3[2])};
 
-	for (int i = 0; i < mt->meshCount; i++) {
-        if (!strcmp(mt->data_textures[i].name, "trigger")) {
-            continue;
-        }
-		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
-			numofmeshes++;
-		}
-	}
+    return      (min[0] <= box->max.x && max[0] >= box->min.x) &&
+                (min[1] <= box->max.y && max[1] >= box->min.y) &&
+                (min[2] <= box->max.z && max[2] >= box->min.z);
+}
 
-	Mesh* meshes = (Mesh*)RL_CALLOC(numofmeshes, sizeof(Mesh));
+OctreeNode* buildOctreeNode(Mesh* mesh, int* available_tris, int available_count, BoundingBox* box, int current_deep)
+{
+    if (available_count == 0) return NULL;
 
+    OctreeNode* node = (OctreeNode*)Z_Malloc(sizeof(OctreeNode));
+    memset(node, 0, sizeof(OctreeNode));
+    node->box = *box;
+    node->is_leaf = true;
 
-	for (int i = 0, j = 0; i < mt->meshCount; i++) {
-		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
-            if (!strcmp(mt->data_textures[i].name, "trigger")) {
-                continue;
-            }
-			meshes[j].triangleCount = 		mt->mesh[i].triangleCount;
-			meshes[j].vertexCount = 		mt->mesh[i].vertexCount;
-			meshes[j].vertices =			mt->mesh[i].vertices;
-			meshes[j].normals =			    mt->mesh[i].normals;
-			meshes[j].texcoords =			mt->mesh[i].texcoords;
-            meshes[j].texcoords2 =			mt->mesh[i].texcoords2;
-			UploadMesh(&meshes[j], true);
-
-            meshes[j].vboId[SHADER_LOC_VERTEX_TEXCOORD02] = rlLoadVertexBuffer(meshes[j].texcoords2, meshes[j].vertexCount*2*sizeof(float), false);
-            rlEnableVertexArray(meshes[j].vaoId);
-
-            // Index 5 is for texcoords2
-            rlSetVertexAttribute(5, 2, RL_FLOAT, 0, 0, 0);
-            rlEnableVertexAttribute(5);
-            rlDisableVertexArray();
-
-			j++;
-		}
-	}
-
-    Model model = { 0 };
-
-    model.transform = MatrixIdentity();
-
-    model.meshCount = numofmeshes;
-    model.meshes = meshes;
-
-    model.materialCount = numofmeshes;
-    model.materials = (Material *)RL_CALLOC(model.materialCount, sizeof(Material));
-    
-
-    model.meshMaterial = (int *)RL_CALLOC(model.meshCount, sizeof(int));
-    
-
-	for (int i = 0; i < model.meshCount; i++) {
-		model.meshMaterial[i] = i;
-	}
-	int texid = 0;
-	Resource_key key = (Resource_key){0};
-
-	for (int i = 0, j = 0; i < mt->num_textures, j < model.materialCount; i++) {
-        if (!strcmp(mt->data_textures[i].name, "trigger")) {
-            continue;
-        }
-		if (mt->mesh[i].vertices && mt->mesh[i].vertexCount) {
-			model.materials[j] = LoadMaterialDefault();
-			//int len = strnlen(mt->data_textures[i].name, sizeof(mt->data_textures[i].name));
-			//strncpy(&(mt->data_textures[i].name[len]), ".png", 5);
-            if (mt->data_textures[i].type == TEXTYPE_SKY) {
-                key = loadTextureResource("\\sky");
-                model.materials[j].shader = skybox_shader;
-                model.materials[j].maps[MATERIAL_MAP_CUBEMAP].texture = getTextureResource(&key);
-            } else {
-                key = loadTextureResource(mt->data_textures[i].name);
-                
-                if (mt->data_textures[i].name[0] == '{') {
-                    model.materials[j].shader = discard_shader;
-                } else {
-                    model.materials[j].shader = lightmap_shader;
-                }
-                   
-
-                model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&key);
-                key = loadTextureResource("\\light");
-                model.materials[j].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&key);
-                SetTextureWrap(model.materials[j].maps[MATERIAL_MAP_ALBEDO].texture, TEXTURE_WRAP_REPEAT);
-            }
-			    
-			
-			
-			j++;
-		}
-	}
+    //if (current_deep >= OCTREE_DEEP || available_count <= )
 
 
-    return model;
-}*/
+    return node;
+} 
+
 
 void loadSubModelsToResource(model_t* mt)
 {
+
+    static int maxvert = 0;
+
     int beforemark = Hunk_LowMark();
 
-    typedef struct {
+    typedef struct VertPerTexture{
+        int tex_idx;
         int mesh_idx;
         int num_vertices;
+        int num_triangles;
+        struct VertPerTexture* next;
     } VertPerTexture;
 
     mesh_t* basemesh = mt->mesh;
@@ -174,15 +125,49 @@ void loadSubModelsToResource(model_t* mt)
 
         int numvertices = 0;
 
-        VertPerTexture* vpt = (VertPerTexture*)Hunk_Alloc(mt->num_textures*sizeof(VertPerTexture));
+        VertPerTexture* vpts = (VertPerTexture*)Hunk_Alloc(sizeof(VertPerTexture));
+        VertPerTexture* curr = NULL;
+        VertPerTexture* prev = NULL;
 
-        int numusedtextures = 0;
+        vpts->tex_idx = -1;
+        vpts->tex_idx = -1;
+
+        int numusedtextures = 1;
+
+        int putted = 0;
 
         for (i = 0, surface = mt->data_surfaces+sm->firstface; i < sm->numfaces; i++, surface++) {
-            if (vpt[surface->tex_idx].num_vertices == 0 && surface->num_vertices){
+
+            if (!surface->num_vertices) continue;
+            curr = vpts;
+            putted = 0;
+            while (!putted && curr) {
+                if (curr->tex_idx == -1) {
+                    curr->tex_idx = surface->tex_idx;
+                }
+                if (curr->tex_idx == surface->tex_idx) {
+                    if (curr->num_vertices + surface->num_vertices < MAX_UNSIGNED_SHORT) {
+                        curr->num_vertices += surface->num_vertices;
+                        curr->num_triangles += surface->num_triangles;
+                        putted = 1;
+                        break;
+                    }
+                }
+                prev = curr;
+                curr = prev->next;
+                
+            }
+
+            if (!putted) {
+                prev->next = (VertPerTexture*)Hunk_Alloc(sizeof(VertPerTexture));
+                prev->next->tex_idx = surface->tex_idx;
+                prev->next->mesh_idx = numusedtextures;
+                prev->next->num_vertices += surface->num_vertices;
+                prev->next->num_triangles += surface->num_triangles;
                 numusedtextures++;
             }
-            vpt[surface->tex_idx].num_vertices += surface->num_vertices;
+            
+
         }
 
         Mesh* meshes = (Mesh*)RL_CALLOC(numusedtextures, sizeof(Mesh));   
@@ -194,46 +179,84 @@ void loadSubModelsToResource(model_t* mt)
         md.meshMaterial = (int*)RL_CALLOC(numusedtextures, sizeof(int));
 
         int j = 0;
-        for (i = 0; i < mt->num_textures; i++) {
-            if (vpt[i].num_vertices)  {
-                vpt[i].mesh_idx = j;
-                meshes[j].vertices = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*3*sizeof(float));
-                meshes[j].texcoords = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*2*sizeof(float));
-                meshes[j].texcoords2 = (float*)Hunk_AllocNoFill(vpt[i].num_vertices*2*sizeof(float));
-                //meshes[0].vertices = (float*)Hunk_AllocNoFill(numvertices*3*sizeof(float));
-                meshes[j].vertexCount = 0;
-                meshes[j].triangleCount = vpt[i].num_vertices/3;
-
-                md.materials[j] = LoadMaterialDefault();
-        
-                md.meshMaterial[j] = j;
-
-                if (mt->data_textures[i].type == TEXTYPE_SKY) {
-                    md.materials[j].shader = skybox_shader;
-                    texkey = loadTextureResource("\\sky");
-                    md.materials[j].maps[MATERIAL_MAP_CUBEMAP].texture = getTextureResource(&texkey);
-                } else {
-                    md.materials[j].shader = lightmap_shader; 
-                    texkey = loadTextureResource(mt->data_textures[i].name);
-                    md.materials[j].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&texkey);
-                    texkey = loadTextureResource("\\light");
-                    md.materials[j].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&texkey);
+        for (i = 0; i < numusedtextures; i++) {
+            curr = vpts;
+            while (curr)
+            {
+                if (curr->mesh_idx == i) {
+                    break;
                 }
-                j++;
+                curr = curr->next;
+            }
+
+            if (!curr) {
+                TraceLog(LOG_ERROR, __FILE__ ": " __FUNCTION__ ": curr vertexperface was null");
+            }
+            
+            meshes[i].indices = (unsigned short*)Hunk_AllocNoFill(curr->num_triangles*3*sizeof(unsigned short));
+            meshes[i].vertices = (float*)Hunk_AllocNoFill(curr->num_vertices*3*sizeof(float));
+            meshes[i].texcoords = (float*)Hunk_AllocNoFill(curr->num_vertices*2*sizeof(float));
+            meshes[i].texcoords2 = (float*)Hunk_AllocNoFill(curr->num_vertices*2*sizeof(float));
+            //meshes[0].vertices = (float*)Hunk_AllocNoFill(numvertices*3*sizeof(float));
+            meshes[i].vertexCount = 0;
+            meshes[i].triangleCount = 0;
+
+            md.materials[i] = LoadMaterialDefault();
+    
+            md.meshMaterial[i] = i;
+
+            if (mt->data_textures[curr->tex_idx].type == TEXTYPE_SKY) {
+                md.materials[i].shader = skybox_shader;
+                texkey = loadTextureResource("\\sky");
+                md.materials[i].maps[MATERIAL_MAP_CUBEMAP].texture = getTextureResource(&texkey);
+            } else {
+                md.materials[i].shader = lightmap_shader; 
+                texkey = loadTextureResource(mt->data_textures[curr->tex_idx].name);
+                md.materials[i].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&texkey);
+                texkey = loadTextureResource("\\light");
+                md.materials[i].maps[MATERIAL_MAP_METALNESS].texture = getTextureResource(&texkey);
             }
         }
 
+        int firsttri = 0;
         int firstvert = 0;
         int mesh_idx = 0;
         
         for (i = 0, surface = mt->data_surfaces+sm->firstface; i < sm->numfaces; i++, surface++) {
-            mesh_idx = vpt[surface->tex_idx].mesh_idx;
+            curr = vpts;
+            while (curr)
+            {
+                if (curr->tex_idx == surface->tex_idx && meshes[curr->mesh_idx].vertexCount + surface->num_vertices < MAX_UNSIGNED_SHORT) {
+                    break;
+                }
+                curr = curr->next;
+            }
+
+
+            mesh_idx = curr->mesh_idx;
             firstvert = meshes[mesh_idx].vertexCount;
+            firsttri = meshes[mesh_idx].triangleCount;
             memcpy(meshes[mesh_idx].vertices+firstvert*3, basemesh->vertices + surface->num_firstvertex*3, surface->num_vertices*3*sizeof(float) );
             memcpy(meshes[mesh_idx].texcoords+firstvert*2, basemesh->texcoords + surface->num_firstvertex*2, surface->num_vertices*2*sizeof(float) );
             memcpy(meshes[mesh_idx].texcoords2+firstvert*2, basemesh->texcoords2 + surface->num_firstvertex*2, surface->num_vertices*2*sizeof(float) );
+
+
+            for (int tri = 0; tri < surface->num_triangles; tri++) {
+                meshes[mesh_idx].indices[(firsttri + tri)*3 + 0] = (unsigned short)(firstvert);
+                meshes[mesh_idx].indices[(firsttri + tri)*3 + 1] = (unsigned short)(firstvert + tri + 2);
+                meshes[mesh_idx].indices[(firsttri + tri)*3 + 2] = (unsigned short)(firstvert + tri + 1);
+            }
+
+            if (firstvert >= MAX_UNSIGNED_SHORT) {
+                TraceLog(LOG_ERROR, __FILE__ ": " __FUNCTION__ ": Max vertex reached: %i", firstvert);
+            }
+
+
             meshes[mesh_idx].vertexCount += surface->num_vertices;
+            meshes[mesh_idx].triangleCount += surface->num_triangles;
         }
+
+
 
         for (i = 0;i < numusedtextures; i++) {
             UploadMesh(meshes+i, false);
@@ -254,11 +277,6 @@ void loadSubModelsToResource(model_t* mt)
         }
         
         setUsageResource(&mapkey, MAP_USAGE);
-
-        
-
-
-
     }
 
 }
@@ -303,6 +321,9 @@ void loadMapResource(const char* mapname)
 	b3CreateMeshShape( body, &shapeDef, mesh, b3Vec3_one );
 
     parseEntities(mapMod.entities);
+
+
+    TraceLog(LOG_INFO, "min %f %f %f : max %f %f %f", mapMod.aabb[0][0],mapMod.aabb[0][1],mapMod.aabb[0][2],mapMod.aabb[1][0],mapMod.aabb[1][1],mapMod.aabb[1][2]);
 }
 
 void initResources()
@@ -358,6 +379,9 @@ void unloadMapResource()
                     UnloadTexture(resources[i].texture);
                     break;
                 case RES_MODEL:
+                    for (int j = 0; j < resources[i].model.meshCount; j++) {
+                        resources[i].model.meshes[j].indices = NULL;
+                    }
                     UnloadModel(resources[i].model);
                     break;
                 default:
