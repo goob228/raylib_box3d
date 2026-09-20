@@ -6,6 +6,8 @@
 
 #define RESOURCE_NAME_SIZE 64
 
+#define MAP_USAGE 2
+
 extern b3WorldId g_worldid;
 
 typedef enum {

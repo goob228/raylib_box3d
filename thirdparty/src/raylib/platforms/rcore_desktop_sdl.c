@@ -1431,7 +1431,10 @@ void PollInputEvents(void)
     CORE.Input.Mouse.currentWheelMove.y = 0;
 
     // Register previous mouse position
-    if (CORE.Input.Mouse.cursorLocked) CORE.Input.Mouse.currentPosition = (Vector2){ 0.0f, 0.0f };
+    if (CORE.Input.Mouse.cursorLocked) {
+        CORE.Input.Mouse.currentPosition = (Vector2){ 0.0f, 0.0f };
+        CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };
+    }
     else CORE.Input.Mouse.previousPosition = CORE.Input.Mouse.currentPosition;
 
     // Reset last gamepad button/axis registered state
@@ -1736,9 +1739,8 @@ void PollInputEvents(void)
             {
                 if (CORE.Input.Mouse.cursorLocked)
                 {
-                    CORE.Input.Mouse.currentPosition.x += (float)event.motion.xrel;
+                    CORE.Input.Mouse.currentPosition.x += (float)event.motion.xrel; // Accumulate relative mouse motion across all polled events
                     CORE.Input.Mouse.currentPosition.y += (float)event.motion.yrel;
-                    CORE.Input.Mouse.previousPosition = (Vector2){ 0.0f, 0.0f };
                 }
                 else
                 {
@@ -2204,6 +2206,7 @@ int InitPlatform(void)
 
     // NOTE: No need to call InitTimer(), let SDL manage it internally
     //----------------------------------------------------------------------------
+    CORE.Time.previous = 0.0;
 
     // Initialize storage system
     //----------------------------------------------------------------------------

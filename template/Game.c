@@ -133,6 +133,8 @@ void game_startLoop(struct Game* self)
 
 	Memory_Init(global_buffer, GAME_MEMORY_SIZE);
 
+	int startMark = Hunk_LowMark();
+
 	initCvars();
     initCmds();
 
@@ -176,6 +178,10 @@ void game_startLoop(struct Game* self)
 		if (self->_eventhandler->keys & EH_K_RESTART && !inMenu) {
 			game_quit(self);
 			if (game_init(self)) return;
+			newTime = GetTime();
+			oldTime = newTime;
+			accumtime = host_netinterval;
+			Hunk_FreeToLowMark(startMark);
 			continue;
 		}
 

@@ -983,6 +983,8 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 			SetTextureFilter(texture, TEXTURE_FILTER_TRILINEAR);
 			Resource_key key = setTextureResource(texture, model_shared_texture_name);
 
+			setUsageResource(&key, MAP_USAGE);
+
 		}
 
 		Hunk_FreeToLowMark(mark);
@@ -1501,7 +1503,9 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 	Texture lightmapVRAM = LoadTextureFromImage(image);
 	//GenTextureMipmaps(&lightmapVRAM);
 	SetTextureFilter(lightmapVRAM, TEXTURE_FILTER_TRILINEAR);
-	setTextureResource(lightmapVRAM, "\\light");
+	Resource_key key = setTextureResource(lightmapVRAM, "\\light");
+
+	setUsageResource(&key, MAP_USAGE);
 
 	Hunk_FreeToLowMark(mark);
 	atindexes = NULL;

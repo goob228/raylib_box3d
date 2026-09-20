@@ -19,7 +19,7 @@
 
 #define RESOURCES_SIZE 2048
 
-#define MAP_USAGE 2
+
 
 
 model_t g_mapModel = {0};
@@ -348,17 +348,14 @@ void initResources()
 
     
 	
-    if (!IsShaderValid(lightmap_shader))
-        lightmap_shader = LoadShader(TextFormat("res/shaders/shader.vs"), TextFormat("res/shaders/shader.fs"));
+    lightmap_shader = LoadShader(TextFormat("res/shaders/shader.vs"), TextFormat("res/shaders/shader.fs"));
 
-    if (!IsShaderValid(discard_shader))
-        discard_shader = LoadShader(TextFormat("res/shaders/shader_discard.vs"), TextFormat("res/shaders/shader_discard.fs"));
+    discard_shader = LoadShader(TextFormat("res/shaders/shader_discard.vs"), TextFormat("res/shaders/shader_discard.fs"));
 
-    if (!IsShaderValid(skybox_shader))
-        skybox_shader = LoadShader(TextFormat("res/shaders/skybox.vs"),TextFormat("res/shaders/skybox.fs"));
-        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "environmentMap"), (int[1]){ MATERIAL_MAP_CUBEMAP }, SHADER_UNIFORM_INT);
-        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "doGamma"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
-        SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "vflipped"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
+    skybox_shader = LoadShader(TextFormat("res/shaders/skybox.vs"),TextFormat("res/shaders/skybox.fs"));
+    SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "environmentMap"), (int[1]){ MATERIAL_MAP_CUBEMAP }, SHADER_UNIFORM_INT);
+    SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "doGamma"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
+    SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "vflipped"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
 
     Image image = LoadImage("res/skybox.png");
     setTextureResource(LoadTextureCubemap(image, CUBEMAP_LAYOUT_AUTO_DETECT), "\\sky");
@@ -560,6 +557,19 @@ void setUsageResource(Resource_key* key, int usage)
 
 void clearResources()
 {
+    if (IsShaderValid(skybox_shader)) {
+        UnloadShader(skybox_shader);
+        skybox_shader = (Shader){0};
+    }
+    if (IsShaderValid(discard_shader)) {
+        UnloadShader(discard_shader);
+        discard_shader = (Shader){0};
+    }
+    if (IsShaderValid(lightmap_shader)) {
+        UnloadShader(lightmap_shader);
+        lightmap_shader = (Shader){0};
+    }
+
     unloadMapResource();
     Model model = (Model){0};
     Texture texture = (Texture){0};
@@ -569,21 +579,7 @@ void clearResources()
             {
             case RES_MODEL:
                 model = resources[i].model;
-                if (resources[i].usage != MAP_USAGE) {
-                    
-                    UnloadModel(model);
-                } else {
-                    for (int i = 0; i < model.meshCount; i++) {
-                        
-                        model.meshes[i].triangleCount = 	0;
-                        model.meshes[i].vertexCount = 		0;
-                        model.meshes[i].vertices =			NULL;
-                        model.meshes[i].normals =			NULL;
-                        model.meshes[i].texcoords =			NULL;
-                        model.meshes[i].texcoords2 =		NULL;
-                    }
-                    UnloadModel(model);
-                }
+                UnloadModel(model);
                 break;
 
             case RES_TEXTURE:
