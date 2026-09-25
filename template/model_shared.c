@@ -1706,7 +1706,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		surface->num_firstvertex = loadmodel.mesh[0].num_firstvertex;
 		surface->num_triangles = num_triangles;
 		surface->num_vertices = num_vertices;
-		surface->included = false;
+		surface->visframe = 0;
 
 
 		int idx = 0;
@@ -2099,12 +2099,12 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 	Mod_Q1BSP_LoadLighting(&lumpsb[LUMP_LIGHTING]);
 	Mod_Q1BSP_LoadPlanes(&lumpsb[LUMP_PLANES]);
     Mod_Q1BSP_LoadFaces(&lumpsb[LUMP_FACES]);
-	//Mod_Q1BSP_LoadLeaffaces(&lumpsb[LUMP_MARKSURFACES]);
-	//Mod_Q1BSP_LoadVisibility(&lumpsb[LUMP_VISIBILITY]);
+	Mod_Q1BSP_LoadLeaffaces(&lumpsb[LUMP_MARKSURFACES]);
+	Mod_Q1BSP_LoadVisibility(&lumpsb[LUMP_VISIBILITY]);
 	// load submodels before leafs because they contain the number of vis leafs
 	Mod_BSP_LoadSubmodels(&lumpsb[LUMP_MODELS], &hullinfo);
-	//Mod_Q1BSP_LoadLeafs(&lumpsb[LUMP_LEAFS]);
-	//Mod_Q1BSP_LoadNodes(&lumpsb[LUMP_NODES]);
+	Mod_Q1BSP_LoadLeafs(&lumpsb[LUMP_LEAFS]);
+	Mod_Q1BSP_LoadNodes(&lumpsb[LUMP_NODES]);
 
     PRINT("num of edges %i", loadmodel.numedges);
     PRINT("num of surfedges %i", loadmodel.numsurfedges);

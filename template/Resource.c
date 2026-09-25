@@ -215,7 +215,7 @@ Tree buildOctreeFromModel(Model model, BoundingBox box)
     return tree;
 }
 
-void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int triCount)
+static void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int triCount)
 {
 
     if (triCount == 0) return;
@@ -563,7 +563,7 @@ void loadSubModelsToResource(model_t* mt)
                 TraceLog(LOG_ERROR, __FILE__ ": " __FUNCTION__ ": curr vertexperface was null");
             }
             
-            meshes[i].indices = (unsigned short*)Hunk_AllocNoFill(curr->num_triangles*3*sizeof(unsigned short));
+            meshes[i].indices = (unsigned short*)Z_Malloc(curr->num_triangles*3*sizeof(unsigned short));
             meshes[i].vertices = (float*)Hunk_AllocNoFill(curr->num_vertices*3*sizeof(float));
             meshes[i].texcoords = (float*)Hunk_AllocNoFill(curr->num_vertices*2*sizeof(float));
             meshes[i].texcoords2 = (float*)Hunk_AllocNoFill(curr->num_vertices*2*sizeof(float));
@@ -621,27 +621,20 @@ void loadSubModelsToResource(model_t* mt)
                 TraceLog(LOG_ERROR, __FILE__ ": " __FUNCTION__ ": Max vertex reached: %i", firstvert);
             }
 
+            surface->tex_idx = mesh_idx;
+            surface->num_firsttriangle = meshes[mesh_idx].triangleCount;
+            surface->num_firstvertex = meshes[mesh_idx].vertexCount;
 
             meshes[mesh_idx].vertexCount += surface->num_vertices;
             meshes[mesh_idx].triangleCount += surface->num_triangles;
+
+            
+            
         }
 
 
 
         
-        if (smid == 0)
-        {
-            BoundingBox baseBox = {0};
-            baseBox.min.x = mt->aabb[0][0];
-            baseBox.min.y = mt->aabb[0][1];
-            baseBox.min.z = mt->aabb[0][2];
-
-            baseBox.max.x = mt->aabb[1][0];
-            baseBox.max.y = mt->aabb[1][1];
-            baseBox.max.z = mt->aabb[1][2];
-
-            mapTree = buildOctreeFromModel(md, baseBox);
-        }
 
 
         for (i = 0;i < numusedtextures; i++) {
@@ -750,7 +743,7 @@ void initResources()
     UnloadImage(image);
 
     beforeMapMark = Hunk_LowMark();
-    loadMapResource("fall.bsp");
+    loadMapResource("qbj3_radiatoryang.bsp");
     
 
 }
@@ -765,6 +758,7 @@ void unloadMapResource()
                     break;
                 case RES_MODEL:
                     for (int j = 0; j < resources[i].model.meshCount; j++) {
+                        Z_Free(resources[i].model.meshes[j].indices);
                         resources[i].model.meshes[j].indices = NULL;
                     }
                     UnloadModel(resources[i].model);

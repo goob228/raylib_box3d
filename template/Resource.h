@@ -10,6 +10,8 @@
 
 extern b3WorldId g_worldid;
 
+
+
 typedef enum {
     RES_NONE,
     RES_MODEL,

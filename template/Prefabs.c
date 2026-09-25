@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "Object.h"
 #include "Camera.h"
@@ -643,7 +644,7 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 }
 
 
-/*
+
 #define DotProduct(x,y)					((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
 
 //===============
@@ -748,58 +749,341 @@ static byte *Mod_DecompressVis (byte *in)
 }
 #define IS_LEAF_VISIBLE(l, pvs) (pvs[l >> 3] & (1 << ((l) & 7)))
 
-*/
+typedef struct {
+	int offset;
+	int count;
+} offset_count;
+
+typedef struct {
+	offset_count* ofc;
+	int count;
+	int size;
+} mesh_chain;
+
+mesh_chain* g_chain;
+
+void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int triCount)
+{
+
+    if (triCount == 0) return;
+
+    rlEnableShader(mat.shader.id);
+
+    if (mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE] != -1)
+    {
+        float values[4] = {
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.r/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.g/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.b/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.a/255.0f
+        };
+
+        rlSetUniform(mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE], values, SHADER_UNIFORM_VEC4, 1);
+    }
+
+
+    // Get a copy of current matrices to work with,
+    // in case stereo render is required, and they need to be modified
+    // NOTE: At this point the modelview matrix contains the view matrix (camera)
+    // That's because BeginMode3D() sets it and there is no model-drawing function
+    // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matModelView = MatrixIdentity();
+    Matrix matProjection = rlGetMatrixProjection();
+
+    // Upload view and projection matrices (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_VIEW] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_VIEW], matView);
+    if (mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION], matProjection);
+
+    // Accumulate several model transformations:
+    //    transform: model transformation provided (includes DrawModel() params combined with model.transform)
+    //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
+    matModel = MatrixMultiply(transform, rlGetMatrixTransform());
+
+    // Model transformation matrix is sent to shader uniform location: SHADER_LOC_MATRIX_MODEL
+    if (mat.shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MODEL], matModel);
+
+    // Get model-view matrix
+    matModelView = MatrixMultiply(matModel, matView);
+
+    // Upload model normal matrix (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
+    //-----------------------------------------------------
+
+    // Bind active texture maps (if available)
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Enable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlEnableTextureCubemap(mat.maps[i].texture.id);
+            else rlEnableTexture(mat.maps[i].texture.id);
+
+            rlSetUniform(mat.shader.locs[SHADER_LOC_MAP_DIFFUSE + i], &i, SHADER_UNIFORM_INT, 1);
+        }
+    }
+
+    // Try binding vertex array objects (VAO) or use VBOs if not possible
+    // WARNING: UploadMesh() enables all vertex attributes available in mesh and sets default attribute values
+    // for shader expected vertex attributes that are not provided by the mesh (i.e. colors)
+    // This could be a dangerous approach because different meshes with different shaders can enable/disable some attributes
+    if (!rlEnableVertexArray(mesh.vaoId))
+    {
+        // Bind mesh VBO data: vertex position (shader-location = 0)
+        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_POSITION]);
+        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
+        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION]);
+
+        // Bind mesh VBO data: vertex texcoords (shader-location = 1)
+        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD]);
+        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_FLOAT, 0, 0, 0);
+        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
+
+        if (mat.shader.locs[SHADER_LOC_VERTEX_NORMAL] != -1)
+        {
+            // Bind mesh VBO data: vertex normals (shader-location = 2)
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_NORMAL]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL], 3, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL]);
+        }
+
+        // Bind mesh VBO data: vertex colors (shader-location = 3, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_COLOR] != -1)
+        {
+            if (mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR] != 0)
+            {
+                rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR]);
+                rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], 4, RL_UNSIGNED_BYTE, 1, 0, 0);
+                rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
+            }
+            else
+            {
+                // Set default value for defined vertex attribute in shader but not provided by mesh
+                // WARNING: It could result in GPU undefined behaviour
+                float value[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+                rlSetVertexAttributeDefault(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], value, SHADER_ATTRIB_VEC4, 4);
+                rlDisableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
+            }
+        }
+
+        // Bind mesh VBO data: vertex tangents (shader-location = 4, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_TANGENT] != -1)
+        {
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TANGENT]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT], 4, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT]);
+        }
+
+        // Bind mesh VBO data: vertex texcoords2 (shader-location = 5, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02] != -1)
+        {
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD2]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02], 2, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02]);
+        }
+
+    
+        if (mesh.indices != NULL) rlEnableVertexBufferElement(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES]);
+    }
+
+    int eyeCount = 1;
+    if (rlIsStereoRenderEnabled()) eyeCount = 2;
+
+    for (int eye = 0; eye < eyeCount; eye++)
+    {
+        // Calculate model-view-projection matrix (MVP)
+        Matrix matModelViewProjection = MatrixIdentity();
+        if (eyeCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+        else
+        {
+            // Setup current eye viewport (half screen width)
+            rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
+            matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+        }
+
+        // Send combined model-view-projection matrix to shader
+        rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
+
+        // Draw mesh
+        if (mesh.indices != NULL && g_chain != NULL)  {
+			int offset = 0;
+			int count = 0;
+			for (int chainid = 0; chainid < g_chain->count; chainid++) {
+				offset = g_chain->ofc[chainid].offset;
+				count = g_chain->ofc[chainid].count;
+				rlDrawVertexArrayElements(offset*3, count*3, 0);
+			}
+		}
+        else rlDrawVertexArray(0, mesh.vertexCount);
+    }
+
+    // Unbind all bound texture maps
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Disable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlDisableTextureCubemap();
+            else rlDisableTexture();
+        }
+    }
+
+    // Disable all possible vertex array objects (or VBOs)
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
+    rlDisableVertexBufferElement();
+
+    // Disable shader program
+    rlDisableShader();
+
+    // Restore rlgl internal modelview and projection matrices
+    rlSetMatrixModelview(matView);
+    rlSetMatrixProjection(matProjection);
+}
+
+int compareOffsets(const void* a, const void* b) {
+	int offa = ((offset_count*)a)->offset;
+	int offb = ((offset_count*)b)->offset;
+	return (offa - offb);
+}
+
+mleaf_t		*r_viewleaf, *r_oldviewleaf;
 
 void map_draw(struct Object* self, Playground* playground)
 {
 	self->updateMatrix(self);
 	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-	if (self->modelres.name[0] == '\\') {
-		drawOctree(getModelResource(&self->modelres));
-	} else {
-		//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	if (self->modelres.name[0] != '\\') {
+		DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+		return;
 	}
 	
-
-	/*
+	Model mod = getModelResource(&self->modelres);
+	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	
 	int beforeMark = Hunk_LowMark();
 	float cameraP[3] = {0};
 	CameraData* camdata = (CameraData*)camera.data;
 	cameraP[0] = -camdata->cam.position.x * INV_MULTI;
 	cameraP[1] = camdata->cam.position.z * INV_MULTI;
 	cameraP[2] = camdata->cam.position.y * INV_MULTI;
-	mleaf_t* leaf = Mod_PointInLeaf(cameraP);
+	r_viewleaf = Mod_PointInLeaf(cameraP);
 
-	//#define IS_LEAF_VISIBLE(l, pvs) (pvs[(l) >> 3] & (1 << ((l) & 7)))
+	
+	#define IS_LEAF_VISIBLE(l, pvs) (pvs[(l) >> 3] & (1 << ((l) & 7)))
 
 	byte* frame_pvs = NULL;
 
-	if (leaf->clusterindex >= 0 && g_mapModel.data_compressedpvs) {
-		frame_pvs = Mod_DecompressVis(g_mapModel.data_compressedpvs + leaf->clusterindex);
+	if (r_viewleaf->clusterindex >= 0 && g_mapModel.data_compressedpvs) {
+		frame_pvs = Mod_DecompressVis(g_mapModel.data_compressedpvs + r_viewleaf->clusterindex);
 	} else {
 		frame_pvs = Mod_DecompressVis(NULL);
 	}
 	
+	static int r_visframecount = 0;
+
+	r_visframecount++;
 	
+
+	mesh_chain* mesh_chains = (mesh_chain*)Hunk_Alloc(mod.meshCount*sizeof(mesh_chain));
+	mesh_chain* chain;
+
 	msurface_t* surface;
+	mleaf_t* leaf;
 	int i = 0;
 	int* leafsurfid = NULL;
-	int numvertices = 0;
-	int num_of_leafs = 0;
 	for (int lid = 0; lid < g_mapModel.num_leafs; lid++) {
 		if (!IS_LEAF_VISIBLE(lid, frame_pvs)) continue;
 		leaf = g_mapModel.data_leafs + lid;
-		num_of_leafs++;
 		for (i = 0, leafsurfid = leaf->firstleafsurface; i < leaf->numleafsurfaces; i++, leafsurfid++) {
 			surface = &(g_mapModel.data_surfaces[*leafsurfid]);
-			if (!surface->included) {
-				numvertices += surface->num_vertices;
-				surface->included = true;
+			if (surface->visframe != r_visframecount) {
+				surface->visframe = r_visframecount;
+				chain = mesh_chains + surface->tex_idx;
+				if (chain->size < 10) {
+					chain->size = 10;
+					chain->count = 0;
+					chain->ofc = (offset_count*)Hunk_Alloc(chain->size * sizeof(offset_count));
+				}
+				if (chain->count+1 >= chain->size) {
+					chain->size *= 2;
+					offset_count* ofc = (offset_count*)Hunk_Alloc(chain->size * sizeof(offset_count));
+
+					memcpy(ofc, chain->ofc, chain->count*sizeof(offset_count));
+
+					chain->ofc = ofc;
+				}
+
+				chain->ofc[chain->count].offset = surface->num_firsttriangle;
+				chain->ofc[chain->count].count = surface->num_triangles;
+
+
+
+				chain->count++;
+
 			}
-			
-			
 		}
 	}
+
+	
+	offset_count* ofc;
+	for (int meshi = 0; meshi < mod.meshCount; meshi++) {
+		g_chain = mesh_chains + meshi;
+		qsort(g_chain->ofc, g_chain->count, sizeof(offset_count), compareOffsets);
+		ofc = g_chain->ofc;
+		int rc = 0;
+		for (int ofcid = 1; ofcid < g_chain->count; ofcid++) {
+			if (ofc[rc].offset + ofc[rc].count == ofc[ofcid].offset) {
+				ofc[rc].count += ofc[ofcid].count;
+			} else {
+				rc++;
+				ofc[rc].offset = ofc[ofcid].offset;
+				ofc[rc].count = ofc[ofcid].count;
+			}
+			
+		}
+		g_chain->count = rc;
+		
+	}
+
+
+
+	
+	Material drawingMaterial;
+	Mesh* drawingMesh;
+	Matrix drawingTransform;
+	int meshId;
+
+	for (int meshi = 0; meshi < mod.meshCount; meshi++)
+    {
+        drawingMaterial = mod.materials[mod.meshMaterial[meshi]];
+        drawingMesh = mod.meshes + meshi;
+        drawingTransform = mod.transform;
+        meshId = meshi;
+        //DrawMesh(mesh, mat, transform);
+
+		g_chain = mesh_chains + meshi;
+
+        
+
+		drawMyMesh(*drawingMesh, drawingMaterial, drawingTransform, 1, 1);
+        
+    }
+
+
+
+	/*
 		
 
 	//Model md = getModelResource(&(self->modelres));
@@ -823,7 +1107,7 @@ void map_draw(struct Object* self, Playground* playground)
 	for (int sid = 0; sid < g_mapModel.num_surfaces; sid++) {
 		surface = g_mapModel.data_surfaces + sid;
 		if (!surface->included) continue;
-		cmesh = g_mapModel.mesh + surface->mesh_idx;
+		cmesh = g_mapModel.mesh + surface->tex_idx;
 		memcpy(mesh.vertices+vertid, cmesh->vertices+surface->num_firstvertex*3, surface->num_vertices*3*sizeof(float));
 		vertid += surface->num_vertices*3;
 		surface->included = false;
@@ -854,6 +1138,8 @@ void map_draw(struct Object* self, Playground* playground)
     if (mesh.vboId != NULL) for (int i = 0; i < 7; i++) rlUnloadVertexBuffer(mesh.vboId[i]);
     RL_FREE(mesh.vboId);
 	*/
+
+	Hunk_FreeToLowMark(beforeMark);
 
 }
 

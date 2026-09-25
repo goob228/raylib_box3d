@@ -130,7 +130,7 @@ typedef struct msurface_s
 	//struct q3deffect_s* effect; // q3bsp
 
 	// used by Mod_Mesh_Finalize when building sortedmodelsurfaces
-	bool included;
+	int visframe;
 } msurface_t;
 
 typedef struct mleaf_s
