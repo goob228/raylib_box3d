@@ -21,6 +21,29 @@ typedef struct {
     int id;
 } Resource_key;
 
+typedef struct OctreeNode OctreeNode;
+
+typedef struct OctreeNode {
+    BoundingBox box;
+    int* triangleIndexPerMesh;
+    int* triangleCountPerMesh;
+    OctreeNode* children[8];
+    int deepNess;
+    int meshCount;
+    bool visible;
+    bool isLeaf;
+} OctreeNode;
+
+typedef struct Tree {
+    Mesh* meshes;
+    int meshCount;
+    OctreeNode* root;
+} Tree;
+
+extern Tree mapTree;
+
+void drawOctree(Model mod);
+
 Resource_key loadTextureResource(const char* name);
 
 Resource_key setTextureResource(Texture texture, const char* name);

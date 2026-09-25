@@ -17,10 +17,10 @@
 #include "Zone.h"
 #include "G_local.h"
 
-#define RESOURCES_SIZE 2048
+#define RESOURCES_SIZE 1024
 
 
-
+Tree mapTree = {0};
 
 model_t g_mapModel = {0};
 
@@ -53,19 +53,10 @@ static Resource resources[RESOURCES_SIZE] = {0};
 #define MY_MAX(a, b) (a > b ? a : b)
 #define MY_MIN(a, b) (a < b ? a : b)
 
-typedef struct OctreeNode OctreeNode;
-
-typedef struct OctreeNode {
-    BoundingBox box;
-    int* triangle_indices;
-    int triangle_count;
-    Mesh* mesh;
-    OctreeNode* children[8];
-    bool is_leaf;
-} OctreeNode;
 
 
-bool IsTriangleInsideBox(float p1[3], float p2[3], float p3[3], BoundingBox* box) 
+
+bool isTriangleInsideBox(float p1[3], float p2[3], float p3[3], BoundingBox* box) 
 {
     float min[3] = {MY_MIN(MY_MIN(p1[0], p2[0]), p3[0]), MY_MIN(MY_MIN(p1[1], p2[1]), p3[1]), MY_MIN(MY_MIN(p1[2], p2[2]), p3[2])};
     float max[3] = {MY_MAX(MY_MAX(p1[0], p2[0]), p3[0]), MY_MAX(MY_MAX(p1[1], p2[1]), p3[1]), MY_MAX(MY_MAX(p1[2], p2[2]), p3[2])};
@@ -75,20 +66,399 @@ bool IsTriangleInsideBox(float p1[3], float p2[3], float p3[3], BoundingBox* box
                 (min[2] <= box->max.z && max[2] >= box->min.z);
 }
 
-OctreeNode* buildOctreeNode(Mesh* mesh, int* available_tris, int available_count, BoundingBox* box, int current_deep)
+OctreeNode* newOctreeNode(int meshCount)
 {
-    if (available_count == 0) return NULL;
-
-    OctreeNode* node = (OctreeNode*)Z_Malloc(sizeof(OctreeNode));
-    memset(node, 0, sizeof(OctreeNode));
-    node->box = *box;
-    node->is_leaf = true;
-
-    //if (current_deep >= OCTREE_DEEP || available_count <= )
-
-
+    OctreeNode* node = (OctreeNode*)Hunk_Alloc(sizeof(OctreeNode));
+    node->meshCount = meshCount;
+    node->triangleIndexPerMesh = (int*)Hunk_Alloc(sizeof(int) * meshCount);
+    node->triangleCountPerMesh = (int*)Hunk_Alloc(sizeof(int) * meshCount);
     return node;
-} 
+}
+
+void swapTriangles(unsigned short tri1[3], unsigned short tri2[3])
+{
+    unsigned short temp[3];
+
+    memmove(temp, tri1, sizeof(unsigned short)*3);
+    memmove(tri1, tri2, sizeof(unsigned short)*3);
+    memmove(tri2, temp, sizeof(unsigned short)*3);
+
+    /*
+    unsigned short temp;
+
+    temp = tri1[0];
+    tri1[0] = tri2[0];
+    tri2[0] = temp;
+
+    temp = tri1[1];
+    tri1[1] = tri2[1];
+    tri2[1] = temp;
+
+    temp = tri1[2];
+    tri1[2] = tri2[2];
+    tri2[2] = temp;
+    */
+
+}
+
+Material drawingMaterial;
+Mesh* drawingMesh;
+Matrix drawingTransform;
+int meshId;
+
+void RecurseBuildOctree(OctreeNode* node);
+
+void RecurseBuildOctree(OctreeNode* node, int trifirst, int tricount)
+{
+    if (!node) return;
+
+
+    float* verts = drawingMesh->vertices;
+    int triangleCount = 0;
+    int indIndex;
+    for (int triangleIndex = trifirst; triangleIndex < trifirst+tricount; triangleIndex++) {
+        indIndex = triangleIndex*3;
+        int i1 = 3 * drawingMesh->indices[indIndex] ;
+        int i2 = 3 * drawingMesh->indices[indIndex+1];
+        int i3 = 3 * drawingMesh->indices[indIndex+2];
+        if (isTriangleInsideBox(verts+i1, verts+i2, verts+i3, &(node->box))) {
+            if (trifirst + triangleCount != triangleIndex) {
+                swapTriangles(&(drawingMesh->indices[indIndex]), &(drawingMesh->indices[(trifirst + triangleCount)*3]));
+            }
+            triangleCount++;
+        }
+    }
+
+
+    node->triangleIndexPerMesh[meshId] = trifirst;
+    node->triangleCountPerMesh[meshId] = triangleCount;
+
+
+    if (node->deepNess >= 1) {
+        node->isLeaf = 1;
+        return;
+    }
+
+    node->isLeaf = 0;
+
+    if (node->children[0] == NULL){
+
+        OctreeNode* child;
+
+        Vector3 center = (Vector3){ (node->box.min.x + node->box.max.x) * 0.5f, (node->box.min.y + node->box.max.y) * 0.5f, (node->box.min.z + node->box.max.z) * 0.5f };
+
+
+        for (int i = 0; i < 8; i++) {
+            node->children[i] = newOctreeNode(node->meshCount);
+            node->children[i]->deepNess = node->deepNess + 1;
+
+            child = node->children[i];
+
+            child->box.min.x = (i & 1) ? center.x : node->box.min.x;
+            child->box.max.x = (i & 1) ? node->box.max.x : center.x;
+
+            child->box.min.y = (i & 2) ? center.y : node->box.min.y;
+            child->box.max.y = (i & 2) ? node->box.max.y : center.y;
+
+            child->box.min.z = (i & 4) ? center.z : node->box.min.z;
+            child->box.max.z = (i & 4) ? node->box.max.z : center.z;
+        }
+    }
+
+
+
+    int trioffset = trifirst;
+
+    int triCounter = tricount;
+
+    for (int i = 0; i < 8; i++) {
+        if (node->children[i]){
+            RecurseBuildOctree(node->children[i], trioffset, triCounter);
+            trioffset += node->children[i]->triangleCountPerMesh[meshId];
+            triCounter -= node->children[i]->triangleCountPerMesh[meshId];
+        }
+    }
+
+}
+
+
+Tree buildOctreeFromModel(Model model, BoundingBox box)
+{
+    Tree tree = {0};
+
+    
+    tree.meshCount = model.meshCount;
+    tree.meshes = model.meshes;
+    tree.root = newOctreeNode(tree.meshCount);
+    tree.root->box = box;
+
+    OctreeNode* node = tree.root;
+    node->deepNess = 1;
+
+    int indIndex = 0;
+    int triangleCount = 0;
+    int triangleIndex = 0;
+
+    Mesh* mesh;
+    int meshIdx;
+
+    for (meshIdx = 0, mesh = tree.meshes; meshIdx < tree.meshCount; meshIdx++, mesh++) {
+        
+        drawingMesh = mesh;
+        meshId = meshIdx;
+
+        RecurseBuildOctree(node, 0, mesh->triangleCount);
+
+    }
+
+
+    return tree;
+}
+
+void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int triCount)
+{
+
+    if (triCount == 0) return;
+
+    rlEnableShader(mat.shader.id);
+
+    if (mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE] != -1)
+    {
+        float values[4] = {
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.r/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.g/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.b/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.a/255.0f
+        };
+
+        rlSetUniform(mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE], values, SHADER_UNIFORM_VEC4, 1);
+    }
+
+
+    // Get a copy of current matrices to work with,
+    // in case stereo render is required, and they need to be modified
+    // NOTE: At this point the modelview matrix contains the view matrix (camera)
+    // That's because BeginMode3D() sets it and there is no model-drawing function
+    // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matModelView = MatrixIdentity();
+    Matrix matProjection = rlGetMatrixProjection();
+
+    // Upload view and projection matrices (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_VIEW] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_VIEW], matView);
+    if (mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION], matProjection);
+
+    // Accumulate several model transformations:
+    //    transform: model transformation provided (includes DrawModel() params combined with model.transform)
+    //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
+    matModel = MatrixMultiply(transform, rlGetMatrixTransform());
+
+    // Model transformation matrix is sent to shader uniform location: SHADER_LOC_MATRIX_MODEL
+    if (mat.shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MODEL], matModel);
+
+    // Get model-view matrix
+    matModelView = MatrixMultiply(matModel, matView);
+
+    // Upload model normal matrix (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
+    //-----------------------------------------------------
+
+    // Bind active texture maps (if available)
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Enable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlEnableTextureCubemap(mat.maps[i].texture.id);
+            else rlEnableTexture(mat.maps[i].texture.id);
+
+            rlSetUniform(mat.shader.locs[SHADER_LOC_MAP_DIFFUSE + i], &i, SHADER_UNIFORM_INT, 1);
+        }
+    }
+
+    // Try binding vertex array objects (VAO) or use VBOs if not possible
+    // WARNING: UploadMesh() enables all vertex attributes available in mesh and sets default attribute values
+    // for shader expected vertex attributes that are not provided by the mesh (i.e. colors)
+    // This could be a dangerous approach because different meshes with different shaders can enable/disable some attributes
+    if (!rlEnableVertexArray(mesh.vaoId))
+    {
+        // Bind mesh VBO data: vertex position (shader-location = 0)
+        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_POSITION]);
+        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
+        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION]);
+
+        // Bind mesh VBO data: vertex texcoords (shader-location = 1)
+        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD]);
+        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_FLOAT, 0, 0, 0);
+        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
+
+        if (mat.shader.locs[SHADER_LOC_VERTEX_NORMAL] != -1)
+        {
+            // Bind mesh VBO data: vertex normals (shader-location = 2)
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_NORMAL]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL], 3, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL]);
+        }
+
+        // Bind mesh VBO data: vertex colors (shader-location = 3, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_COLOR] != -1)
+        {
+            if (mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR] != 0)
+            {
+                rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR]);
+                rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], 4, RL_UNSIGNED_BYTE, 1, 0, 0);
+                rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
+            }
+            else
+            {
+                // Set default value for defined vertex attribute in shader but not provided by mesh
+                // WARNING: It could result in GPU undefined behaviour
+                float value[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+                rlSetVertexAttributeDefault(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], value, SHADER_ATTRIB_VEC4, 4);
+                rlDisableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
+            }
+        }
+
+        // Bind mesh VBO data: vertex tangents (shader-location = 4, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_TANGENT] != -1)
+        {
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TANGENT]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT], 4, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT]);
+        }
+
+        // Bind mesh VBO data: vertex texcoords2 (shader-location = 5, if available)
+        if (mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02] != -1)
+        {
+            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD2]);
+            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02], 2, RL_FLOAT, 0, 0, 0);
+            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02]);
+        }
+
+    
+        if (mesh.indices != NULL) rlEnableVertexBufferElement(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES]);
+    }
+
+    int eyeCount = 1;
+    if (rlIsStereoRenderEnabled()) eyeCount = 2;
+
+    for (int eye = 0; eye < eyeCount; eye++)
+    {
+        // Calculate model-view-projection matrix (MVP)
+        Matrix matModelViewProjection = MatrixIdentity();
+        if (eyeCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+        else
+        {
+            // Setup current eye viewport (half screen width)
+            rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
+            matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+        }
+
+        // Send combined model-view-projection matrix to shader
+        rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
+
+        // Draw mesh
+        if (mesh.indices != NULL) rlDrawVertexArrayElements(firstTri*3, triCount*3, 0);
+        else rlDrawVertexArray(0, mesh.vertexCount);
+    }
+
+    // Unbind all bound texture maps
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Disable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlDisableTextureCubemap();
+            else rlDisableTexture();
+        }
+    }
+
+    // Disable all possible vertex array objects (or VBOs)
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
+    rlDisableVertexBufferElement();
+
+    // Disable shader program
+    rlDisableShader();
+
+    // Restore rlgl internal modelview and projection matrices
+    rlSetMatrixModelview(matView);
+    rlSetMatrixProjection(matProjection);
+}
+
+
+
+void RecurseDrawOctree(OctreeNode* node);
+
+void RecurseDrawOctree(OctreeNode* node)
+{
+    if (!node) return;
+
+    if (node->visible == false) return;
+
+    if (node->isLeaf) {
+        drawMyMesh(*drawingMesh, drawingMaterial, drawingTransform, node->triangleIndexPerMesh[meshId], node->triangleCountPerMesh[meshId]);
+        return;
+    }
+
+    for (int i = 0; i < 8; i++) {
+        if (node->children[i]) RecurseDrawOctree(node->children[i]);
+    }
+}
+
+Camera raylib_camera = { 0 };
+
+void checkFrustumOctree(OctreeNode* node)
+{
+    if (!node) return;
+
+    node->visible = CheckCollisionBoxSphere(node->box, raylib_camera.position, 1.0f);
+
+    if (node->visible == false || node->isLeaf) return;
+
+    for (int i = 0; i < 8; i++) {
+        checkFrustumOctree(node->children[i]);
+    }
+
+}
+
+void drawOctree(Model mod)
+{
+
+    CameraData* camdata = (CameraData*)camera.data;
+
+    raylib_camera = camdata->cam;
+
+    checkFrustumOctree(mapTree.root);
+
+
+    for (int meshi = 0; meshi < mod.meshCount; meshi++)
+    {
+        drawingMaterial = mod.materials[mod.meshMaterial[meshi]];
+        drawingMesh = mod.meshes + meshi;
+        drawingTransform = mod.transform;
+        meshId = meshi;
+        //DrawMesh(mesh, mat, transform);
+
+
+        OctreeNode* node = mapTree.root;
+
+        RecurseDrawOctree(node);
+        
+        
+    }
+}
 
 
 void loadSubModelsToResource(model_t* mt)
@@ -258,12 +628,30 @@ void loadSubModelsToResource(model_t* mt)
 
 
 
+        
+        if (smid == 0)
+        {
+            BoundingBox baseBox = {0};
+            baseBox.min.x = mt->aabb[0][0];
+            baseBox.min.y = mt->aabb[0][1];
+            baseBox.min.z = mt->aabb[0][2];
+
+            baseBox.max.x = mt->aabb[1][0];
+            baseBox.max.y = mt->aabb[1][1];
+            baseBox.max.z = mt->aabb[1][2];
+
+            mapTree = buildOctreeFromModel(md, baseBox);
+        }
+
+
         for (i = 0;i < numusedtextures; i++) {
             UploadMesh(meshes+i, false);
             meshes[i].vertices = NULL;
             meshes[i].texcoords = NULL;
             meshes[i].texcoords2 = NULL;
         }
+
+        
 
         Hunk_FreeToLowMark(beforemark);
 
@@ -362,7 +750,7 @@ void initResources()
     UnloadImage(image);
 
     beforeMapMark = Hunk_LowMark();
-    loadMapResource("qbj3_radiatoryang.bsp");
+    loadMapResource("fall.bsp");
     
 
 }

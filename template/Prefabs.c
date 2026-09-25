@@ -10,6 +10,7 @@
 #include <box3d/box3d.h>
 #include <rlgl.h>
 
+#include "Resource.h"
 #include "Playground.h"
 #include "EventHandler.h"
 #include "Animation.h"
@@ -752,7 +753,13 @@ static byte *Mod_DecompressVis (byte *in)
 void map_draw(struct Object* self, Playground* playground)
 {
 	self->updateMatrix(self);
-	DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	if (self->modelres.name[0] == '\\') {
+		drawOctree(getModelResource(&self->modelres));
+	} else {
+		//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	}
+	
 
 	/*
 	int beforeMark = Hunk_LowMark();
