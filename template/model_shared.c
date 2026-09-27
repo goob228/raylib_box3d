@@ -1222,7 +1222,7 @@ int compareAtlases(const void* a, const void* b)
 
 static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 {
-    int i, j, count, surfacenum, planenum, smax, tmax, ssize, tsize, firstedge, numedges, totalverts, totaltris, lightmapnumber, lightmapsize, totallightmapsamples, lightmapoffset, texinfoindex, textureindex;
+    int i, j, side, count, surfacenum, planenum, smax, tmax, ssize, tsize, firstedge, numedges, totalverts, totaltris, lightmapnumber, lightmapsize, totallightmapsamples, lightmapoffset, texinfoindex, textureindex;
     int structsize = loadmodel.isbsp2 ? 28 : 20;
 	unsigned short lmshift = 4;
     if (sb->cursize % structsize)
@@ -1543,7 +1543,7 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 		// the struct on disk is the same in BSP29 (Q1), BSP30 (HL1), and IBSP38 (Q2)
 		planenum = loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
-		/*side = */loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
+		side = loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
 		firstedge = MSG_ReadLittleLong(sb);
 		numedges = loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
 		texinfoindex = loadmodel.isbsp2 ? MSG_ReadLittleLong(sb) : (unsigned short)MSG_ReadLittleShort(sb);
@@ -1558,6 +1558,13 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 		if (loadmodel.isbspx && loadmodel.lmshifts){
 			lmshift = (unsigned short)loadmodel.lmshifts[surfacenum];
 		}
+
+		surface->plane = loadmodel.data_planes + planenum;
+
+		surface->flags = 0;
+
+		if (side)
+			surface->flags |= SURF_PLANEBACK;
 
 
 		// FIXME: validate edges, texinfo, etc?
@@ -1761,32 +1768,37 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 
 static void Mod_Q1BSP_LoadLeaffaces(sizebuf_t *sb)
 {
-	int i, j;
+	int i, j, count;
 	int structsize = loadmodel.isbsp2 ? 4 : 2;
+	msurface_t **out;
 
 	if (sb->cursize % structsize)
 		TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: funny lump size in %s",loadmodel.name);
-	loadmodel.num_leafsurfaces = sb->cursize / structsize;
-	loadmodel.data_leafsurfaces = (int *)Hunk_AllocNameNoFill(loadmodel.num_leafsurfaces * sizeof(int), "leaf faces");
+
+	count = sb->cursize / structsize;
+	out = (msurface_t **)Hunk_AllocName( count*sizeof(*out), "leaf faces");
+
+	loadmodel.num_leafsurfaces = count;
+	loadmodel.data_leafsurfaces = out;
 
 	if (loadmodel.isbsp2)
 	{
-		for (i = 0;i < loadmodel.num_leafsurfaces;i++)
+		for (i = 0;i < count;i++)
 		{
 			j = MSG_ReadLittleLong(sb);
 			if (j < 0 || j >= loadmodel.num_surfaces)
 				TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: bad surface number");
-			loadmodel.data_leafsurfaces[i] = j;
+			out[i] = loadmodel.data_surfaces + j;
 		}
 	}
 	else
 	{
-		for (i = 0;i < loadmodel.num_leafsurfaces;i++)
+		for (i = 0;i < count;i++)
 		{
 			j = (unsigned short) MSG_ReadLittleShort(sb);
 			if (j >= loadmodel.num_surfaces)
 				TraceLog(LOG_ERROR, "model_shared.c: Mod_Q1BSP_LoadLeaffaces: bad surface number");
-			loadmodel.data_leafsurfaces[i] = j;
+			out[i] = loadmodel.data_surfaces + j;
 		}
 	}
 }

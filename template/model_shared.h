@@ -105,6 +105,20 @@ typedef struct mplane_s
 }
 mplane_t;
 
+#define	SURF_PLANEBACK		2
+#define	SURF_DRAWSKY		4
+#define SURF_DRAWSPRITE		8
+#define SURF_DRAWTURB		0x10
+#define SURF_DRAWTILED		0x20
+#define SURF_DRAWBACKGROUND	0x40
+#define SURF_UNDERWATER		0x80
+#define SURF_NOTEXTURE		0x100 //johnfitz
+#define SURF_DRAWFENCE		0x200
+#define SURF_DRAWLAVA		0x400
+#define SURF_DRAWSLIME		0x800
+#define SURF_DRAWTELE		0x1000
+#define SURF_DRAWWATER		0x2000
+
 /// <summary>
 ///  describes the textures to use on a range of triangles in the model, and mins/maxs (AABB) for culling.
 /// </summary>
@@ -131,6 +145,9 @@ typedef struct msurface_s
 
 	// used by Mod_Mesh_Finalize when building sortedmodelsurfaces
 	int visframe;
+
+	mplane_t	*plane;
+	int flags;
 } msurface_t;
 
 typedef struct mleaf_s
@@ -151,7 +168,7 @@ typedef struct mleaf_s
 	int areaindex; // q3bsp
 	int containscollisionsurfaces; // indicates whether the leafsurfaces contains q3 patches
 	int numleafsurfaces;
-	int *firstleafsurface;
+	msurface_t	**firstleafsurface;
 	int numleafbrushes; // q3bsp
 	int *firstleafbrush; // q3bsp
 	unsigned char ambient_sound_level[NUM_AMBIENTS]; // q1bsp
@@ -224,7 +241,7 @@ typedef struct {
 	mnode_t *data_nodes;
 
 	int num_leafsurfaces;
-	int *data_leafsurfaces;
+	msurface_t	**data_leafsurfaces;
 
 	int				num_compressedpvs;
 	unsigned char			*data_compressedpvs;
@@ -241,6 +258,8 @@ typedef struct {
 	unsigned char* lmshifts;
 
 	bool lightOverflow;
+
+	bool viswarn; // for Mod_DecompressVis()
 
 	char *entities;
 

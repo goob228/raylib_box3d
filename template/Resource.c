@@ -622,7 +622,7 @@ void loadSubModelsToResource(model_t* mt)
             }
 
             surface->tex_idx = mesh_idx;
-            surface->num_firsttriangle = meshes[mesh_idx].triangleCount;
+            surface->num_firsttriangle = firsttri;
             surface->num_firstvertex = meshes[mesh_idx].vertexCount;
 
             meshes[mesh_idx].vertexCount += surface->num_vertices;
@@ -638,7 +638,7 @@ void loadSubModelsToResource(model_t* mt)
 
 
         for (i = 0;i < numusedtextures; i++) {
-            UploadMesh(meshes+i, false);
+            UploadMesh(meshes+i, true);
             meshes[i].vertices = NULL;
             meshes[i].texcoords = NULL;
             meshes[i].texcoords2 = NULL;
