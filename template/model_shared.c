@@ -1571,7 +1571,9 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			lmshift = (unsigned short)loadmodel.lmshifts[surfacenum];
 		}
 
-		surface->plane = loadmodel.data_planes + planenum;
+		surface->planetype = loadmodel.data_planes[planenum].type;
+		surface->planenorm = loadmodel.data_planes[planenum].normal;
+		surface->planedist = loadmodel.data_planes[planenum].dist;
 
 		surface->flags = 0;
 

@@ -1137,10 +1137,10 @@ bool R_BackFaceCull (msurface_t *surf)
 {
 	double dot;
 
-	if (surf->plane->type < 3)
-		dot = r_origin[surf->plane->type] - surf->plane->dist;
+	if (surf->planetype < 3)
+		dot = r_origin[surf->planetype] - surf->planedist;
 	else
-		dot = DotProduct (r_origin, surf->plane->normal) - surf->plane->dist;
+		dot = DotProduct (r_origin, surf->planenorm) - surf->planedist;
 
 	if ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK))
 		return true;
@@ -1267,7 +1267,7 @@ void map_draw(struct Object* self, Playground* playground)
 			for (i = 0, mark = leaf->firstleafsurface; i < leaf->numleafsurfaces; i++, mark++) {
 
 				surface = *mark;
-				if (surface->visframe != r_visframecount && g_mapModel.submodels[0].firstface <= (int)(surface - g_mapModel.data_surfaces) &&  (int)(surface - g_mapModel.data_surfaces) < g_mapModel.submodels[0].firstface + g_mapModel.submodels[0].numfaces) {
+				if (surface->visframe != r_visframecount && surface->issubmodel_0) {
 					surface->visframe = r_visframecount;
 					
 					if (!R_BackFaceCull (surface)) {

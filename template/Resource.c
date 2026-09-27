@@ -234,7 +234,7 @@ void loadSubModelsToResource(model_t* mt)
             meshes[mesh_idx].vertexCount += surface->num_vertices;
             meshes[mesh_idx].triangleCount += surface->num_triangles;
 
-            
+            if (smid == 0) surface->issubmodel_0 = true;
             
         }
 
@@ -335,13 +335,11 @@ void initResources()
 
     
 	
-    lightmap_shader = LoadShaderFromMemory(lightmap_33_vs, lightmap_33_fs);// LoadShader(TextFormat("res/shaders/shader.vs"), lightmap_33_fs);
+    lightmap_shader = LoadShaderFromMemory(lightmap_33_vs, lightmap_33_fs);
 
-    
+    discard_shader = LoadShaderFromMemory(lightmap_discard_33_vs, lightmap_discard_33_fs);
 
-    discard_shader = LoadShader(TextFormat("res/shaders/shader_discard.vs"), TextFormat("res/shaders/shader_discard.fs"));
-
-    skybox_shader = LoadShader(TextFormat("res/shaders/skybox.vs"),TextFormat("res/shaders/skybox.fs"));
+    skybox_shader = LoadShaderFromMemory(skybox_33_vs, skybox_33_fs);
     SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "environmentMap"), (int[1]){ MATERIAL_MAP_CUBEMAP }, SHADER_UNIFORM_INT);
     SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "doGamma"), (int[1]){ 0 }, SHADER_UNIFORM_INT);
     SetShaderValue(skybox_shader, GetShaderLocation(skybox_shader, "vflipped"), (int[1]){ 0 }, SHADER_UNIFORM_INT);

@@ -146,8 +146,14 @@ typedef struct msurface_s
 	// used by Mod_Mesh_Finalize when building sortedmodelsurfaces
 	int visframe;
 
-	mplane_t	*plane;
+	int planetype;
+	float* planenorm;
+	float planedist;
+
 	int flags;
+
+	bool issubmodel_0;
+
 } msurface_t;
 
 typedef struct mleaf_s
