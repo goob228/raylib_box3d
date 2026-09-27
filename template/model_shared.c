@@ -464,18 +464,24 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 		TraceLog(LOG_WARNING, "model_shared.c: W_ConvertWAD3TextureBGRA: failed conditions, corrupted wad file");
 		return NULL;
 	}
-	int blockx = (model_shared_image_width+3)/4;
-	int blocky = (model_shared_image_height+3)/4;
-	in = (unsigned char *)sb->data + mipoffset[0];
-	data = out = (unsigned char*)Hunk_AllocNoFill(blockx * blocky * 8);
-	unsigned char src[4 * 4 * 4];
 
 	int add_alpha = 0;
-	
 
 	if (model_shared_texture_name[0] == '{') {
 		add_alpha = 1;
 	}
+
+	int blockx = (model_shared_image_width+3)/4;
+	int blocky = (model_shared_image_height+3)/4;
+	int blockSize = add_alpha ? 16 : 8;
+	in = (unsigned char *)sb->data + mipoffset[0];
+	data = out = (unsigned char*)Hunk_AllocNoFill(blockx * blocky * blockSize);
+	unsigned char src[4 * 4 * 4];
+
+	
+	
+	unsigned char prev_color[3] = {0, 0, 0};
+	
 
 	if (!data)
 		return NULL;
@@ -495,15 +501,20 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 					int block_index = (py*4+px)*4;
 
 					if (in[rgba_index] == 255) {
-						src[block_index+0] = 0;
-						src[block_index+1] = 0;
-						src[block_index+2] = 0;
+						src[block_index+0] = prev_color[0];
+						src[block_index+1] = prev_color[1];
+						src[block_index+2] = prev_color[2];
 						src[block_index+3] = 0;
 					} else {
 						src[block_index+0] = pal[in[rgba_index]*3+0];
 						src[block_index+1] = pal[in[rgba_index]*3+1];
 						src[block_index+2] = pal[in[rgba_index]*3+2];
 						src[block_index+3] = 255;
+						if (add_alpha) {
+							prev_color[0] = src[block_index+0];
+							prev_color[1] = src[block_index+1];
+							prev_color[2] = src[block_index+2];
+						}
 					}
 
 					
@@ -511,12 +522,13 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 				}
 			}
 			if (add_alpha) {
-				stb_compress_dxt_block(out, src, 1, STB_DXT_NORMAL);
+				stb_compress_dxt_block(out, src, 1, STB_DXT_HIGHQUAL);
+				//stb_compress_bc5_block(out, src);
 			} else {
 				stb_compress_dxt_block(out, src, 0, STB_DXT_HIGHQUAL);
 			}
 				
-			out += 8;
+			out += blockSize;
 
 		}
 	}
@@ -524,7 +536,7 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 	pixel_format = PIXELFORMAT_COMPRESSED_DXT1_RGB;
 
 	if (add_alpha) {
-		pixel_format = PIXELFORMAT_COMPRESSED_DXT1_RGBA;
+		pixel_format = PIXELFORMAT_COMPRESSED_DXT5_RGBA;
 	}
 	
 	return data;

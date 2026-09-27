@@ -693,62 +693,6 @@ static int mod_decompressed_capacity = 0;
 #define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
 #define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
 
-/*static byte *Mod_DecompressVis (byte *in)
-{
-	int		c;
-	byte	*out;
-	byte	*outend;
-	int		row;
-
-	row = (g_mapModel.num_leafs+7)>>3;
-	if (mod_decompressed == NULL || row > mod_decompressed_capacity)
-	{
-		mod_decompressed_capacity = (row + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
-		mod_decompressed = (byte *)Z_Realloc(mod_decompressed, mod_decompressed_capacity);
-		if (!mod_decompressed)
-			TraceLog(LOG_ERROR, "Prefabs.c: Mod_DecompressVis: realloc() failed on %d bytes", mod_decompressed_capacity);
-	}
-	out = mod_decompressed;
-	outend = mod_decompressed + row;
-
-	if (!in)
-	{	// no vis info, so make all visible
-		while (row)
-		{
-			*out++ = 0xff;
-			row--;
-		}
-		return mod_decompressed;
-	}
-
-	do
-	{
-		if (*in)
-		{
-			*out++ = *in++;
-			continue;
-		}
-
-		c = in[1];
-		in += 2;
-		if (c > row - (out - mod_decompressed))
-			c = row - (out - mod_decompressed);	//now that we're dynamically allocating pvs buffers, we have to be more careful to avoid heap overflows with buggy maps.
-		
-
-		while (c)
-		{
-			if (out >= outend)
-			{
-				TraceLog(LOG_WARNING, "Prefabs.c: Mod_DecompressVis: output overrun on model \"%s\"\n", g_mapModel.name);
-				return mod_decompressed;
-			}
-			*out++ = 0;
-			c--;
-		}
-	} while (out - mod_decompressed < row);
-
-	return mod_decompressed;
-}*/
 
 static byte *Mod_DecompressVis (byte *in)
 {
@@ -806,8 +750,6 @@ static byte *Mod_DecompressVis (byte *in)
 	return mod_decompressed;
 }
 
-
-#define IS_LEAF_VISIBLE(l, pvs) (pvs[l >> 3] & (1 << ((l) & 7)))
 
 typedef struct {
 	int offset;
@@ -896,70 +838,7 @@ void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int tri
         }
     }
 
-    // Try binding vertex array objects (VAO) or use VBOs if not possible
-    // WARNING: UploadMesh() enables all vertex attributes available in mesh and sets default attribute values
-    // for shader expected vertex attributes that are not provided by the mesh (i.e. colors)
-    // This could be a dangerous approach because different meshes with different shaders can enable/disable some attributes
-    if (!rlEnableVertexArray(mesh.vaoId))
-    {
-        // Bind mesh VBO data: vertex position (shader-location = 0)
-        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_POSITION]);
-        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
-        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_POSITION]);
-
-        // Bind mesh VBO data: vertex texcoords (shader-location = 1)
-        rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD]);
-        rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_FLOAT, 0, 0, 0);
-        rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
-
-        if (mat.shader.locs[SHADER_LOC_VERTEX_NORMAL] != -1)
-        {
-            // Bind mesh VBO data: vertex normals (shader-location = 2)
-            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_NORMAL]);
-            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL], 3, RL_FLOAT, 0, 0, 0);
-            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_NORMAL]);
-        }
-
-        // Bind mesh VBO data: vertex colors (shader-location = 3, if available)
-        if (mat.shader.locs[SHADER_LOC_VERTEX_COLOR] != -1)
-        {
-            if (mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR] != 0)
-            {
-                rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_COLOR]);
-                rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], 4, RL_UNSIGNED_BYTE, 1, 0, 0);
-                rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
-            }
-            else
-            {
-                // Set default value for defined vertex attribute in shader but not provided by mesh
-                // WARNING: It could result in GPU undefined behaviour
-                float value[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-                rlSetVertexAttributeDefault(mat.shader.locs[SHADER_LOC_VERTEX_COLOR], value, SHADER_ATTRIB_VEC4, 4);
-                rlDisableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_COLOR]);
-            }
-        }
-
-        // Bind mesh VBO data: vertex tangents (shader-location = 4, if available)
-        if (mat.shader.locs[SHADER_LOC_VERTEX_TANGENT] != -1)
-        {
-            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TANGENT]);
-            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT], 4, RL_FLOAT, 0, 0, 0);
-            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TANGENT]);
-        }
-
-        // Bind mesh VBO data: vertex texcoords2 (shader-location = 5, if available)
-        if (mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02] != -1)
-        {
-            rlEnableVertexBuffer(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_TEXCOORD2]);
-            rlSetVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02], 2, RL_FLOAT, 0, 0, 0);
-            rlEnableVertexAttribute(mat.shader.locs[SHADER_LOC_VERTEX_TEXCOORD02]);
-        }
-
-    
-        if (mesh.indices != NULL && g_triangle != NULL) {
-			rlEnableVertexBufferElement(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES]);
-		}
-    }
+    rlEnableVertexArray(mesh.vaoId);
 
     int eyeCount = 1;
     if (rlIsStereoRenderEnabled()) eyeCount = 2;
@@ -1015,6 +894,150 @@ void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int tri
     // Restore rlgl internal modelview and projection matrices
     rlSetMatrixModelview(matView);
     rlSetMatrixProjection(matProjection);
+}
+
+void drawMyMap(Model mod, Matrix transform, mutable_indices* m_triangles)
+{
+	//MATERIAL_MAP_METALNESS
+
+    rlEnableShader(lightmap_shader.id);
+
+
+    // Get a copy of current matrices to work with,
+    // in case stereo render is required, and they need to be modified
+    // NOTE: At this point the modelview matrix contains the view matrix (camera)
+    // That's because BeginMode3D() sets it and there is no model-drawing function
+    // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matModelView = MatrixIdentity();
+    Matrix matProjection = rlGetMatrixProjection();
+
+    // Upload view and projection matrices (if locations available)
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_VIEW] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_VIEW], matView);
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_PROJECTION] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_PROJECTION], matProjection);
+
+    // Accumulate several model transformations:
+    //    transform: model transformation provided (includes DrawModel() params combined with model.transform)
+    //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
+    matModel = MatrixMultiply(transform, rlGetMatrixTransform());
+
+    // Model transformation matrix is sent to shader uniform location: SHADER_LOC_MATRIX_MODEL
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_MODEL], matModel);
+
+    // Get model-view matrix
+    matModelView = MatrixMultiply(matModel, matView);
+
+    // Upload model normal matrix (if locations available)
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
+    //-----------------------------------------------------
+
+
+
+
+	int lightmapbinded = 0;
+
+	Material mat;
+	Mesh mesh;
+	int meshId;
+
+	for (int meshi = 0; meshi < mod.meshCount; meshi++)
+    {
+        mat = mod.materials[mod.meshMaterial[meshi]];
+        mesh = mod.meshes[meshi];
+        meshId = meshi;
+
+		if (mat.shader.id != lightmap_shader.id) continue;
+
+		g_triangle = m_triangles + meshi;
+
+		// Bind active texture maps (if available)
+		for (int i = 0; i < 12; i++)
+		{
+
+			if (mat.maps[i].texture.id > 0)
+			{
+				// Select current shader texture slot
+				rlActiveTextureSlot(i);
+
+				// Enable texture for active slot
+				if ((i == MATERIAL_MAP_IRRADIANCE) ||
+					(i == MATERIAL_MAP_PREFILTER) ||
+					(i == MATERIAL_MAP_CUBEMAP)) rlEnableTextureCubemap(mat.maps[i].texture.id);
+				else rlEnableTexture(mat.maps[i].texture.id);
+
+				rlSetUniform(mat.shader.locs[SHADER_LOC_MAP_DIFFUSE + i], &i, SHADER_UNIFORM_INT, 1);
+			}
+		}
+
+	
+		rlEnableVertexArray(mesh.vaoId);
+
+		int eyeCount = 1;
+		if (rlIsStereoRenderEnabled()) eyeCount = 2;
+
+		for (int eye = 0; eye < eyeCount; eye++)
+		{
+			// Calculate model-view-projection matrix (MVP)
+			Matrix matModelViewProjection = MatrixIdentity();
+			if (eyeCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+			else
+			{
+				// Setup current eye viewport (half screen width)
+				rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
+				matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+			}
+
+			// Send combined model-view-projection matrix to shader
+			rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
+
+			// Draw mesh
+			if (mesh.indices != NULL && g_triangle != NULL)  {
+				rlUpdateVertexBufferElements(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES], g_triangle->indices, g_triangle->trianglecount*3*sizeof(unsigned short), 0);
+				rlDrawVertexArrayElements(0, g_triangle->trianglecount*3, 0);
+				rlCheckErrors();
+			}
+			else rlDrawVertexArray(0, mesh.vertexCount);
+		}
+
+		// Unbind all bound texture maps
+		for (int i = 0; i < 12; i++)
+		{
+			if (i == MATERIAL_MAP_METALNESS) {
+			}
+			if (mat.maps[i].texture.id > 0)
+			{
+				// Select current shader texture slot
+				rlActiveTextureSlot(i);
+
+				// Disable texture for active slot
+				if ((i == MATERIAL_MAP_IRRADIANCE) ||
+					(i == MATERIAL_MAP_PREFILTER) ||
+					(i == MATERIAL_MAP_CUBEMAP)) rlDisableTextureCubemap();
+				else rlDisableTexture();
+			}
+		}
+		
+
+		
+
+		// Disable all possible vertex array objects (or VBOs)
+		rlDisableVertexArray();
+		rlDisableVertexBuffer();
+		rlDisableVertexBufferElement();
+
+		
+	}
+	// Disable shader program
+    rlDisableShader();
+
+	//rlActiveTextureSlot(MATERIAL_MAP_METALNESS);
+	//rlDisableTexture();
+
+    // Restore rlgl internal modelview and projection matrices
+    rlSetMatrixModelview(matView);
+    rlSetMatrixProjection(matProjection);
+    
 }
 
 int compareOffsets(const void* a, const void* b) {
@@ -1203,14 +1226,7 @@ void map_draw(struct Object* self, Playground* playground)
 	
 	
 	R_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
-
-
-	Vector3 ball = (Vector3){-r_viewleaf->maxs[0] * MULTIPLIER, r_viewleaf->mins[2] * MULTIPLIER, r_viewleaf->mins[1] * MULTIPLIER};
-	Vector3 ballmax = (Vector3){-r_viewleaf->mins[0] * MULTIPLIER, r_viewleaf->maxs[2] * MULTIPLIER, r_viewleaf->maxs[1] * MULTIPLIER};
-	Vector3 balldim = Vector3Subtract(ballmax, ball);
-
 	
-	#define IS_LEAF_VISIBLE(l, pvs) (pvs[(l) >> 3] & (1 << ((l) & 7)))
 
 	byte* frame_pvs = NULL;
 
@@ -1285,6 +1301,8 @@ void map_draw(struct Object* self, Playground* playground)
         meshId = meshi;
         //DrawMesh(mesh, mat, transform);
 
+		if (drawingMaterial.shader.id == lightmap_shader.id) continue;
+
 		if (drawingMaterial.shader.id == skybox_shader.id) {
 			DrawMesh(*drawingMesh, drawingMaterial, drawingTransform);
 			continue;
@@ -1297,65 +1315,9 @@ void map_draw(struct Object* self, Playground* playground)
 		drawMyMesh(*drawingMesh, drawingMaterial, drawingTransform, 1, 1);
         
     }
-
-
-	DrawCubeWires((Vector3){ball.x+balldim.x*0.5f, ball.y+balldim.y*0.5f, ball.z+balldim.z*0.5f}, balldim.x, balldim.y, balldim.z, RED);
-
-	/*
-		
-
-	//Model md = getModelResource(&(self->modelres));
-	Mesh mesh = {0};
-
-	mesh.triangleCount = numvertices/3;
-	mesh.vertexCount = numvertices;
-	mesh.vertices = Hunk_Alloc(numvertices*3*sizeof(float));
-
-	int vertid = 0;
-
-	float x = 0.0f;
-	float y = 0.0f;
-	float z = 0.0f;
-
 	
+	drawMyMap(mod, mod.transform, m_triangles);
 
-	mesh_t* cmesh;
-
-
-	for (int sid = 0; sid < g_mapModel.num_surfaces; sid++) {
-		surface = g_mapModel.data_surfaces + sid;
-		if (!surface->included) continue;
-		cmesh = g_mapModel.mesh + surface->tex_idx;
-		memcpy(mesh.vertices+vertid, cmesh->vertices+surface->num_firstvertex*3, surface->num_vertices*3*sizeof(float));
-		vertid += surface->num_vertices*3;
-		surface->included = false;
-	}
-
-	//TraceLog(LOG_INFO, " %i NUM OF LEAFS:", num_of_leafs);
-
-	//UploadMesh(&mesh, false);
-
-	Model md = { 0 };
-	md.meshCount = 1;
-	md.meshes = &mesh;
-	md.transform = self->transform;
-
-	md.materialCount = 1;
-	Material material = LoadMaterialDefault();
-	md.materials = &material;
-	md.meshMaterial = (int[1]){0};
-	
-
-	
-	DrawModel(md, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-
-	Hunk_FreeToLowMark(beforeMark);
-
-	rlUnloadVertexArray(mesh.vaoId);
-
-    if (mesh.vboId != NULL) for (int i = 0; i < 7; i++) rlUnloadVertexBuffer(mesh.vboId[i]);
-    RL_FREE(mesh.vboId);
-	*/
 
 	Hunk_FreeToLowMark(beforeMark);
 

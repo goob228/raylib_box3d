@@ -12,6 +12,10 @@ extern b3WorldId g_worldid;
 
 extern Shader skybox_shader;
 
+extern Shader lightmap_shader;
+
+extern Shader discard_shader;
+
 typedef enum {
     RES_NONE,
     RES_MODEL,
