@@ -9,12 +9,13 @@
 
 
 
-Cvar cv_width =     {"width",     "width of screen",          "1200",       ACCESS_CLIENT,          CV_INT};
-Cvar cv_height =    {"height",    "height of screen",         "800",        ACCESS_CLIENT,          CV_INT};
-Cvar cv_vsync =     {"vsync",     "vsync toggle",             "1",          ACCESS_SERVER,          CV_BOOL};
-Cvar cv_FPS =       {"FPS",       "frames per second",        "170",        ACCESS_SERVER,          CV_INT};
-Cvar cv_TPS =       {"TPS",       "game ticks per second",    "50",         ACCESS_SERVER,          CV_INT};
-Cvar cv_wireframe = {"wire",      "enable wireframe mode",    "0",          ACCESS_SERVER,          CV_BOOL};
+Cvar cv_width =     {"width",     "width of screen",            "1200",       ACCESS_CLIENT,          CV_INT};
+Cvar cv_height =    {"height",    "height of screen",           "800",        ACCESS_CLIENT,          CV_INT};
+Cvar cv_vsync =     {"vsync",     "vsync toggle",               "1",          ACCESS_SERVER,          CV_BOOL};
+Cvar cv_FPS =       {"FPS",       "frames per second",          "170",        ACCESS_SERVER,          CV_INT};
+Cvar cv_TPS =       {"TPS",       "game ticks per second",      "50",         ACCESS_SERVER,          CV_INT};
+Cvar cv_wireframe = {"wire",      "enable wireframe mode",      "0",          ACCESS_SERVER,          CV_BOOL};
+Cvar cv_noclip =    {"noclip",    "enable noclip mode",         "0",          ACCESS_SERVER,          CV_BOOL};
 
 void printCvar(Cvar* cvar)
 {
@@ -130,7 +131,7 @@ void initCvars(){
     cv_vsync.next = &cv_FPS;
     cv_FPS.next = &cv_TPS;
     cv_TPS.next = &cv_wireframe;
-    
+    cv_wireframe.next = &cv_noclip;
 
 
     Cvar* curvar = getFirstCvar();

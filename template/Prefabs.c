@@ -367,6 +367,17 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	Object* self = obj;
 	CharacterData* data = (CharacterData*)self->data;
 
+	if (cv_noclip.valueb) {
+		data->trans.p = b3MulAdd(data->trans.p, throttle.x, forward);
+		data->trans.p = b3MulAdd(data->trans.p, throttle.y, right);
+		data->trans.p = b3Add(data->trans.p, (b3Vec3){0.0f, data->velocity.y * timeStep * data->maxSpeed, 0.0f});
+		data->velocity.x = 0.0f;
+		data->velocity.y = 0.0f;
+		data->velocity.z = 0.0f;
+		data->onGround = true;
+		return;
+	}
+
 	float speed = b3Length(data->velocity);
 	if (speed < data->minSpeed){
 		data->velocity.x = 0.0f;
@@ -563,7 +574,10 @@ void character_update(Object* obj, Playground* playground)
 	b3Vec3 forward = camdata->getForward(data->camera);
 	b3Vec3 right = camdata->getRight(data->camera);
 	right = b3Normalize(right);
-	forward.y = 0.0f;
+	if (!cv_noclip.valueb) {
+		forward.y = 0.0f;
+	}
+	
 	forward = b3Normalize(forward);
 
 	if (playground->eh.keys & EH_K_W) {

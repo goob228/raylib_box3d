@@ -72,6 +72,7 @@ extern Cvar cv_vsync;
 extern Cvar cv_FPS;
 extern Cvar cv_TPS;
 extern Cvar cv_wireframe;
+extern Cvar cv_noclip;
 
 
 #endif //SYSCVAR_H
