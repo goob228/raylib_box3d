@@ -13,7 +13,6 @@
 #include "Texture.h"
 #include "model_shared.h"
 #include "MapLoader.h"
-#include "Playground.h"
 #include "Zone.h"
 #include "G_local.h"
 #include "Shaders.h"

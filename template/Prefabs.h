@@ -1,5 +1,5 @@
 #ifndef PREFABS_H
-#define PREFABS_h
+#define PREFABS_H
 
 #include "Object.h"
 
@@ -7,10 +7,8 @@
 
 #include "Animation.h"
 
-
+/*
 #define CAR_WHEEL_COUNT 6
-
-
 
 typedef struct {
 
@@ -58,7 +56,7 @@ typedef struct {
 	Object* wheels[CAR_WHEEL_COUNT];
 
 	int wheelCount;
-} CarData;
+} CarData;*/
 
 #define PLANE_CAPACITY 8
 
@@ -84,7 +82,6 @@ typedef struct {
 	b3Vec3 velocity;
 
 	Object* camera;
-	Playground* playground;
 
 	float jumpSpeed;
 	float maxSpeed;
@@ -107,6 +104,7 @@ typedef struct {
 
 } CharacterData;
 
+/*
 
 Object* wheel_create(Object* object);
 
@@ -117,9 +115,13 @@ Object* car_create(Object* object, Playground* playground);
 void car_steer(Object* self, float angleDeg);
 
 void car_update(Object* self, Playground* playground);
+*/
 
-Object* character_create(Object* object, Object* camera, Playground* playground);
 
-Object* map_create(Object* object);
+void character_update2(Object* obj, CharacterData* data, EventPtr* eventptr, Position* pos, Rotater* rot);
+
+void character_create2(Object* object, CharacterData* data, Position* pos, Object* camera);
+
+void map_draw2(Drawable* drawable);
 
 #endif

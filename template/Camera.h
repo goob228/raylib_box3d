@@ -46,5 +46,6 @@ typedef struct
 
 void gc_init(Object* self);
 
+void gc_update(struct Object* obj);
 
 #endif

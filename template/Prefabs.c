@@ -13,7 +13,6 @@
 #include <external/glad.h>
 
 #include "Resource.h"
-#include "Playground.h"
 #include "EventHandler.h"
 #include "Animation.h"
 #include "G_local.h"
@@ -21,7 +20,12 @@
 #include "model_shared.h"
 #include "SysCvar.h"
 
+extern EventHandler eventhandlers[5];
 
+
+extern Object camera;
+
+/*
 
 
 Object* wheel_create(Object* object)
@@ -305,11 +309,14 @@ void car_update(Object* obj, Playground* playground)
 	cardata->accelerating = false;
 	cardata->braking = false;
 }
+*/
+
+static CharacterData* curr_char_data;
 
 static bool MoverFilterCallback( b3ShapeId shapeId, void* context )
 {
 	Object* self = (Object*)context;
-	CharacterData* data = (CharacterData*)self->data;
+	CharacterData* data = curr_char_data;
 	for ( int i = 0; i < data->ignoreCount; ++i )
 	{
 		if ( B3_ID_EQUALS( shapeId, data->ignoreShapeIds[i] ) )
@@ -330,7 +337,7 @@ static bool PlaneResultFcn( b3ShapeId shapeId, const b3PlaneResult* planeResults
 	}
 
 	Object* self = (Object*)context;
-	CharacterData* data = (CharacterData*)self->data;
+	CharacterData* data = curr_char_data;
 
 	float maxPush = FLT_MAX;
 	bool clipVelocity = true;
@@ -360,12 +367,11 @@ static bool PlaneResultFcn( b3ShapeId shapeId, const b3PlaneResult* planeResults
 	return true;
 }
 
-
-
-void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 right, b3Vec2 throttle, bool clipVelocity)
+void character_solveMove2(Object* obj, CharacterData* data, float timeStep, b3Vec3 forward, b3Vec3 right, b3Vec2 throttle, bool clipVelocity)
 {
 	Object* self = obj;
-	CharacterData* data = (CharacterData*)self->data;
+
+	curr_char_data = data;
 
 	if (cv_noclip.valueb) {
 		data->trans.p = b3MulAdd(data->trans.p, throttle.x, forward);
@@ -426,7 +432,7 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	
 	data->velocity.y -= data->gravity * timeStep;
 
-	b3WorldId worldId = data->playground->worldId;
+	b3WorldId worldId = g_worldid;
 	
 	float pogoRestLength = 1.5f + data->capsule.radius;
 	float rayLength = pogoRestLength + data->capsule.radius;
@@ -562,12 +568,11 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	}
 }
 
-void character_update(Object* obj, Playground* playground)
+void character_update2(Object* obj, CharacterData* data, EventPtr* eventptr, Position* pos, Rotater* rot)
 {
 	Object* self = obj;
-	CharacterData* data = (CharacterData*)self->data;
-	self->posPrev = self->posCurr;
-	self->posCurr = b3ToPos(data->trans.p);
+	pos->prev = pos->curr;
+	pos->curr = b3ToPos(data->trans.p);
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	b3Vec2 throttle = { 0.0f, 0.0f };
@@ -579,25 +584,27 @@ void character_update(Object* obj, Playground* playground)
 	}
 	
 	forward = b3Normalize(forward);
+	
+	EventHandler* ev = eventptr->ptr;
 
-	if (playground->eh.keys & EH_K_W) {
+	if (ev->keys & EH_K_W) {
 		throttle.x += 1.0f;
 	}
-	if (playground->eh.keys & EH_K_S) {
+	if (ev->keys & EH_K_S) {
 		throttle.x -= 1.0f;
 	}
-	if (playground->eh.keys & EH_K_A) {
+	if (ev->keys & EH_K_A) {
 		throttle.y += 1.0f;
 	}
-	if (playground->eh.keys & EH_K_D) {
+	if (ev->keys & EH_K_D) {
 		throttle.y -= 1.0f;
 	}
 
-	if ((playground->eh.keys & EH_K_SPACE) && data->onGround == true) {
+	if ((ev->keys & EH_K_SPACE) && data->onGround == true) {
 		data->velocity.y = data->jumpSpeed;
 		data->onGround = false;
 	}
-	if (data->onGround && (playground->eh.keys & EH_K_SHIFT)) {
+	if (data->onGround && (ev->keys & EH_K_SHIFT)) {
 		data->sprint = true;
 	} else {
 		data->sprint = false;
@@ -606,12 +613,11 @@ void character_update(Object* obj, Playground* playground)
 	float hertz = host_netTPS;
 	float timeStep = hertz > 0.0f ? 1.0f / hertz : 0.0f;
 
-	character_solveMove(self, timeStep, forward, right, throttle, true);
+	character_solveMove2(self, data, timeStep, forward, right, throttle, true);
 }
 
-void char_draw(struct Object* self, Playground* playground)
+void char_draw(struct Object* self)
 {	
-	self->updateMatrix(self);
 	CharacterData* data = (CharacterData*)self->data;
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
@@ -623,18 +629,15 @@ void char_draw(struct Object* self, Playground* playground)
 }
 
 
-
-Object* character_create(Object* object, Object* camera, Playground* playground)
+void character_create2(Object* object, CharacterData* data, Position* pos, Object* camera)
 {
 	Object* self = object;
-	CharacterData* data = (CharacterData*)self->data;
 	
 	data->capsule = (b3Capsule){ { 0.0f, -0.25f, 0.0f }, { 0.0f, 0.25f, 0.0f }, 0.2f };
 	data->trans = b3Transform_identity;
-	data->trans.p = (b3Vec3){self->posCurr.x, self->posCurr.y, self->posCurr.z};
+	data->trans.p = (b3Vec3){pos->curr.x, pos->curr.y, pos->curr.z};
 	data->velocity = b3Vec3_zero;
 	data->camera = camera;
-	data->playground = playground;
 	data->jumpSpeed = 10.0f;
 	data->maxSpeed = 8.0f;
 	data->minSpeed = 0.01f;
@@ -653,8 +656,6 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 
 	data->pogoVelocity = 0.0f;
 	
-	self->update = character_update;
-	self->draw = char_draw;
 	
 
 }
@@ -1193,16 +1194,16 @@ mleaf_t		*r_viewleaf, *r_oldviewleaf;
 
 static int r_visframecount = 0;
 
-void map_draw(struct Object* self, Playground* playground)
+
+void map_draw2(Drawable* drawable)
 {
-	self->updateMatrix(self);
 	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-	if (self->modelres.name[0] != '\\') {
-		DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	if (drawable->modelres.name[0] != '\\') {
+		DrawModel(getModelResource(&drawable->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 		return;
 	}
 	
-	Model mod = getModelResource(&self->modelres);
+	Model mod = getModelResource(&drawable->modelres);
 	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 	
 	int beforeMark = Hunk_LowMark();
@@ -1335,10 +1336,4 @@ void map_draw(struct Object* self, Playground* playground)
 
 	Hunk_FreeToLowMark(beforeMark);
 
-}
-
-Object* map_create(Object* object)
-{
-	object->draw = &map_draw;
-	
 }
