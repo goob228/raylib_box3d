@@ -328,8 +328,9 @@
     #define SUPPORT_MESH_GENERATION     1
 #endif
 #ifndef SUPPORT_GPU_SKINNING
-    // GPU skinning disabled by default, some GPUs do not support more than 8 VBOs
-    #define SUPPORT_GPU_SKINNING        0
+    // GPU skinning enabled by default for GL3.3+, 
+    //  Some GPUs do not support more than 8 VBOs so you may need to disable it if you have issues loading animated models
+    #define SUPPORT_GPU_SKINNING        1
 #endif
 
 //------------------------------------------------------------------------------------
@@ -359,7 +360,7 @@
 #endif
 
 // raudio: Configuration values
-// NOTE: Below values are already defined inside [rlgl.h] so there is no need to be
+// NOTE: Below values are already defined inside [raudio.c] so there is no need to be
 // redefined here, in case it must be done, uncomment the required line and update
 // the value; it can also be done on compilation with -DVALUE_TO_REDEFINE=128
 //------------------------------------------------------------------------------------

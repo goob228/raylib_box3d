@@ -886,7 +886,7 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
 #elif defined(GRAPHICS_API_OPENGL_ES2)
     // NOTE: OpenGL ES 2.0 can be enabled on Desktop platforms,
     // in that case, functions are loaded from a custom glad for OpenGL ES 2.0
-    // TODO: OpenGL ES 2.0 support shouldn't be platform-dependent, neither require GLAD
+    // TODO: rlgl OpenGL ES 2.0 selection shouldn't depend on raylib platform macros, a specific GLAD shouldn't be neither required
     #if defined(PLATFORM_DESKTOP_GLFW) || defined(PLATFORM_DESKTOP_SDL)
         #define GLAD_GLES2_IMPLEMENTATION
         #include "external/glad_gles2.h"
@@ -2966,8 +2966,9 @@ void rlDrawRenderBatch(rlRenderBatch *batch)
         // Activate elements VAO
         if (RLGL.ExtSupported.vao) glBindVertexArray(batch->vertexBuffer[batch->currentBuffer].vaoId);
 
-        // TODO: If no data changed on the CPU arrays there is no need to re-upload data to GPU,
-        // a flag can be used to detect changes but it would imply keeping a copy buffer and memcmp() both, does it worth it?
+        // NOTE: If no data changed on the CPU arrays there is no need to re-upload data to GPU,
+        // a flag can be used to detect changes but it would imply keeping a copy buffer and memcmp() both
+        // It was tested and the gain seemed to be minimal or nothing at all, probably driver already takes care of that
 
         // Vertex positions buffer
         glBindBuffer(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].vboId[0]);
@@ -3240,7 +3241,6 @@ unsigned int rlLoadTexture(const void *data, int width, int height, int format, 
 #if defined(GRAPHICS_API_OPENGL_11)
     if (format >= RL_PIXELFORMAT_COMPRESSED_DXT1_RGB)
     {
-        // TODO: Support texture data decompression
         TRACELOG(RL_LOG_WARNING, "GL: OpenGL 1.1 does not support GPU compressed texture formats");
         return id;
     }
@@ -3517,8 +3517,8 @@ unsigned int rlLoadTextureCubemap(const void *data, int size, int format, int mi
             }
             else
             {
-                if (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB) glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mipmapLevel, glInternalFormat, mipSize, mipSize, 0, glFormat, glType, (unsigned char *)dataPtr + face*dataSize);
-                else glCompressedTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mipmapLevel, glInternalFormat, mipSize, mipSize, 0, dataSize, (unsigned char *)dataPtr + face*dataSize);
+                if (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB) glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mipmapLevel, glInternalFormat, mipSize, mipSize, 0, glFormat, glType, dataPtr + face*dataSize);
+                else glCompressedTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mipmapLevel, glInternalFormat, mipSize, mipSize, 0, dataSize, dataPtr + face*dataSize);
             }
 
 #if defined(GRAPHICS_API_OPENGL_33)
@@ -5013,7 +5013,7 @@ static void rlLoadShaderDefault(void)
 
 #if defined(GRAPHICS_API_OPENGL_ES3)
     "#version 300 es                    \n"
-    "precision mediump float;           \n"     // Precision required for OpenGL ES3 (WebGL 2) (on some browsers)
+    "precision highp float;             \n"     // Precision highp is mandatory in vertex shaders, mediump may run as fp16 and misplace vertices
     "in vec3 vertexPosition;            \n"
     "in vec2 vertexTexCoord;            \n"
     "in vec4 vertexColor;               \n"
@@ -5021,7 +5021,7 @@ static void rlLoadShaderDefault(void)
     "out vec4 fragColor;                \n"
 #elif defined(GRAPHICS_API_OPENGL_ES2)
     "#version 100                       \n"
-    "precision mediump float;           \n"     // Precision required for OpenGL ES2 (WebGL) (on some browsers)
+    "precision highp float;             \n"     // Precision highp is mandatory in vertex shaders, mediump may run as fp16 and misplace vertices
     "attribute vec3 vertexPosition;     \n"
     "attribute vec2 vertexTexCoord;     \n"
     "attribute vec4 vertexColor;        \n"
@@ -5066,7 +5066,11 @@ static void rlLoadShaderDefault(void)
 
 #if defined(GRAPHICS_API_OPENGL_ES3)
     "#version 300 es                    \n"
-    "precision mediump float;           \n"     // Precision required for OpenGL ES3 (WebGL 2)
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH  \n"
+    "precision highp float;             \n"
+    "#else                              \n"
+    "precision mediump float;           \n"
+    "#endif                             \n"
     "in vec2 fragTexCoord;              \n"
     "in vec4 fragColor;                 \n"
     "out vec4 finalColor;               \n"
@@ -5079,7 +5083,11 @@ static void rlLoadShaderDefault(void)
     "}                                  \n";
 #elif defined(GRAPHICS_API_OPENGL_ES2)
     "#version 100                       \n"
-    "precision mediump float;           \n"     // Precision required for OpenGL ES2 (WebGL)
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH  \n"
+    "precision highp float;             \n"
+    "#else                              \n"
+    "precision mediump float;           \n"
+    "#endif                             \n"
     "varying vec2 fragTexCoord;         \n"
     "varying vec4 fragColor;            \n"
     "uniform sampler2D texture0;        \n"
@@ -5217,6 +5225,8 @@ static int rlGetPixelDataSize(int width, int height, int format)
 {
     int dataSize = 0;       // Size in bytes
     int bpp = 0;            // Bits per pixel
+    
+    if ((width <= 0) || (height <= 0)) return dataSize;
 
     switch (format)
     {
@@ -5274,9 +5284,8 @@ static int rlGetPixelDataSize(int width, int height, int format)
     {
         unsigned long long dataSizeBytes = ((unsigned long long)width*height*bpp) >> 3;  // Get size in bytes (dividing by 8)
         if (dataSizeBytes < INT_MAX) dataSize = (int)dataSizeBytes;
+        else TRACELOG(LOG_WARNING, "Requested image size is larger than 2GB, it can not be allocated");
     }
-
-    if (dataSize == 0) TRACELOG(LOG_WARNING, "Requested image size is larger than 2GB, it can not be allocated");
 
     return dataSize;
 }

@@ -23,7 +23,7 @@
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
 
-bool saveBSP = true;
+bool saveBSP = false;
 
 static model_t loadmodel;
 

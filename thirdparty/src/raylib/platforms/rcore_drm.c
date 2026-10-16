@@ -197,7 +197,7 @@ static const int evkeyToUnicodeLUT[] = {
 // NOTE: Use short here to save a little memory
 static const short linuxToRaylibMap[KEYMAP_SIZE] = {
     // Don't map with designated initialization,
-    // it will geenrate many naming conflicts
+    // it will generate many naming conflicts
     0,   256, 49,  50,  51,  52,  53,  54,
     55,  56,  57,  48,  45,  61,  259, 258,
     81,  87,  69,  82,  84,  89,  85,  73,
@@ -1430,24 +1430,28 @@ int InitPlatform(void)
     const char *eglClientExtensions = NULL;
 
     // Get an EGL device connection
-    // NOTE: eglGetPlatformDisplay() is preferred over eglGetDisplay() legacy call
     platform.device = EGL_NO_DISPLAY;
-#if defined(EGL_VERSION_1_5)
+    
+#if !defined(EGL_NO_GETPLATFORMDISPLAY_AVAILABLE)
+    // WARNING: eglGetPlatformDisplay() is preferred over eglGetDisplay() legacy call but
+    // on some devices (Mali GPUs: Mali-G31) symbol could not be available despite defining EGL_VERSION_1_5
+    #if defined(EGL_VERSION_1_5)
     platform.device = eglGetPlatformDisplay(EGL_PLATFORM_GBM_KHR, platform.gbmDevice, NULL);
-#else
+    #else
     // Check if extension is available for eglGetPlatformDisplayEXT()
     // NOTE: Better compatibility with some drivers (e.g. Mali Midgard)
     eglClientExtensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
     if ((eglClientExtensions != NULL) && (strstr(eglClientExtensions, "EGL_EXT_platform_base") != NULL))
     {
         PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
-
         if (eglGetPlatformDisplayEXT != NULL) platform.device = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, platform.gbmDevice, NULL);
     }
+    #endif
+#endif
 
     // In case extension not found or display could not be retrieved, try using legacy version
     if (platform.device == EGL_NO_DISPLAY) platform.device = eglGetDisplay((EGLNativeDisplayType)platform.gbmDevice);
-#endif
+
     if (platform.device == EGL_NO_DISPLAY)
     {
         TRACELOG(LOG_WARNING, "DISPLAY: Failed to initialize EGL device");
@@ -2210,7 +2214,7 @@ static void PollKeyboardEvents(void)
         // If the event was a key, assume a working keyboard is connected, so disable the SSH keyboard
         platform.eventKeyboardMode = true;
 #endif
-        // Keyboard keys appear for codes 1 to 255, ignore everthing else
+        // Keyboard keys appear for codes 1 to 255, ignore everything else
         if ((event.code >= 1) && (event.code <= 255))
         {
             // Lookup the scancode in the keymap to get a keycode
@@ -2236,7 +2240,7 @@ static void PollKeyboardEvents(void)
 
                     if (CORE.Input.Keyboard.charPressedQueueCount < MAX_CHAR_PRESSED_QUEUE)
                     {
-                        // TODO/FIXME: This is not actually converting to unicode properly because it's not taking things like shift into account
+                        // TODO: WARNING: This is not actually converting to unicode properly because it's not taking things like shift into account
                         CORE.Input.Keyboard.charPressedQueue[CORE.Input.Keyboard.charPressedQueueCount] = evkeyToUnicodeLUT[event.code];
                         CORE.Input.Keyboard.charPressedQueueCount++;
                     }
