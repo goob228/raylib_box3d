@@ -16,6 +16,7 @@ Cvar cv_FPS =       {"FPS",       "frames per second",          "170",        AC
 Cvar cv_TPS =       {"TPS",       "game ticks per second",      "50",         ACCESS_SERVER,          CV_INT};
 Cvar cv_wireframe = {"wire",      "enable wireframe mode",      "0",          ACCESS_SERVER,          CV_BOOL};
 Cvar cv_noclip =    {"noclip",    "enable noclip mode",         "0",          ACCESS_SERVER,          CV_BOOL};
+Cvar cv_map =       {"map",       "map name to load",           "qbj3_radiatoryang.bsp",          ACCESS_SERVER,          CV_STRING};
 
 void printCvar(Cvar* cvar)
 {
@@ -72,6 +73,7 @@ void parseCvarValues(Cvar* curvar, char* word)
 
         case CV_STRING:
             strncpy(curvar->value, word, CVAR_STRING_SIZE);
+            curvar->value[CVAR_STRING_SIZE-1] = 0;
             break;
         
         default:
@@ -132,6 +134,7 @@ void initCvars(){
     cv_FPS.next = &cv_TPS;
     cv_TPS.next = &cv_wireframe;
     cv_wireframe.next = &cv_noclip;
+    cv_noclip.next = &cv_map;
 
 
     Cvar* curvar = getFirstCvar();

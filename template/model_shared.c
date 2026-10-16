@@ -23,7 +23,7 @@
 #define LittleLong(l) BuffLittleLong((unsigned char *)&(l))
 
 
-
+bool saveBSP = true;
 
 static model_t loadmodel;
 
@@ -32,6 +32,7 @@ static model_t loadmodel;
 static struct {mwad_t w[MAX_WAD_COUNT]; int numwads;} wads = {0};
 
 int model_shared_image_width, model_shared_image_height;
+int model_shared_texture_num_data;
 
 unsigned char model_shared_texture_name[17];
 
@@ -67,6 +68,8 @@ bspx_header_t *BSPX_Setup(char *filebase, size_t filelen, size_t lumpsEnd);
 
 void Mod_BSPX_LoadShifts(bspx_header_t *bspxheader, unsigned char* filedata);
 void Mod_BSPX_LoadRGBLighting(bspx_header_t *bspxheader, unsigned char* filedata);
+
+unsigned char *LoadFileDataToHunk(const char *fileName, int *dataSize);
 
 vec3 swapyz(vec3 p)
 {
@@ -152,6 +155,17 @@ int MSG_ReadLittleLong (sizebuf_t *sb)
 	return sb->data[sb->readcount-4] | (sb->data[sb->readcount-3]<<8) | (sb->data[sb->readcount-2]<<16) | ((unsigned)sb->data[sb->readcount-1]<<24);
 }
 
+void MSG_WriteLittleLong (sizebuf_t *sb, int w)
+{
+	if (sb->readcount+4 > sb->cursize)
+	{
+		sb->badread = true;
+		return;
+	}
+	*((int*)(sb->data + sb->readcount)) = w;
+	sb->readcount += 4;
+}
+
 short BuffLittleShort (const unsigned char *buffer)
 {
 	return (buffer[1] << 8) | buffer[0];
@@ -183,6 +197,21 @@ float MSG_ReadLittleFloat (sizebuf_t *sb)
 	sb->readcount += 4;
 	dat.l = sb->data[sb->readcount-4] | (sb->data[sb->readcount-3]<<8) | (sb->data[sb->readcount-2]<<16) | ((unsigned)sb->data[sb->readcount-1]<<24);
 	return dat.f;
+}
+
+size_t MSG_WriteBytes (sizebuf_t *sb, size_t numbytes, unsigned char *in)
+{
+	size_t l = 0;
+
+	// when numbytes have been read sb->readcount won't be advanced any further
+	for (l = 0; l < numbytes;) {
+		if (sb->readcount >= (sb)->cursize) {
+			(sb)->badread = true;
+			return l;
+		}
+		(unsigned char)(sb)->data[(sb)->readcount++] = in[l++];
+	}
+	return l;
 }
 
 size_t MSG_ReadBytes (sizebuf_t *sb, size_t numbytes, unsigned char *out)
@@ -342,6 +371,8 @@ unsigned char *W_ConvertWAD2TextureRGBA(sizebuf_t *sb)
 		TraceLog(LOG_WARNING, "model_shared.c: W_ConvertWAD3TextureBGRA: failed conditions, corrupted wad file");
 		return NULL;
 	}
+
+	model_shared_texture_num_data = mipoffset[3] + model_shared_image_width / 8 * model_shared_image_height / 8;
 	
 	in = (unsigned char *)sb->data + mipoffset[0];
 	data = out = (unsigned char *)Hunk_AllocNameNoFill(model_shared_image_width * model_shared_image_height * 4, "default hunk");
@@ -405,6 +436,8 @@ unsigned char *W_ConvertWAD3TextureRGBA(sizebuf_t *sb)
 		TraceLog(LOG_WARNING, "model_shared.c: W_ConvertWAD3TextureBGRA: failed conditions, corrupted wad file");
 		return NULL;
 	}
+
+	model_shared_texture_num_data = (mipoffset[3] + model_shared_image_width / 8 * model_shared_image_height / 8 + 2 + 768);
 	
 	in = (unsigned char *)sb->data + mipoffset[0];
 	data = out = (unsigned char *)Hunk_AllocNameNoFill(model_shared_image_width * model_shared_image_height * 4, "default hunk");
@@ -465,6 +498,8 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 		return NULL;
 	}
 
+	
+
 	int add_alpha = 0;
 
 	if (model_shared_texture_name[0] == '{') {
@@ -475,7 +510,16 @@ unsigned char *W_ConvertWAD2TextureDXT1(sizebuf_t *sb)
 	int blocky = (model_shared_image_height+3)/4;
 	int blockSize = add_alpha ? 16 : 8;
 	in = (unsigned char *)sb->data + mipoffset[0];
-	data = out = (unsigned char*)Hunk_AllocNoFill(blockx * blocky * blockSize);
+	//data = out = (unsigned char*)Hunk_AllocNoFill(blockx * blocky * blockSize);
+	model_shared_texture_num_data = blockx * blocky * blockSize;
+	if (saveBSP) {
+		data = out = (unsigned char*)Z_Malloc(model_shared_texture_num_data);
+	} else {
+		data = out = (unsigned char*)Hunk_AllocNoFill(model_shared_texture_num_data);
+	}
+
+
+
 	unsigned char src[4 * 4 * 4];
 
 	
@@ -814,6 +858,14 @@ static void Mod_Q1BSP_LoadEdges(sizebuf_t *sb)
 	if (sb->cursize % structsize)
 		PRINT("Mod_Q1BSP_LoadEdges: funny lump size %s", loadmodel.name);
 	count = sb->cursize / structsize;
+
+	if (loadmodel.isbsp2 && loadmodel.dontCheckSafety) {
+		out = (unsigned int*)(sb->data + sb->readcount);
+		loadmodel.edges = out;
+		loadmodel.numedges = count;
+		return;
+	}
+
 	out = (unsigned int*)Hunk_AllocNameNoFill(count * 2 * sizeof(*out), "default hunk");
 
 	loadmodel.edges = out;
@@ -846,6 +898,12 @@ static void Mod_Q1BSP_LoadSurfedges(sizebuf_t *sb)
 	if (sb->cursize % structsize)
 		PRINT("Mod_Q1BSP_LoadSurfedges: funny lump size in %s", loadmodel.name);
 	loadmodel.numsurfedges = sb->cursize / structsize;
+
+	if (loadmodel.dontCheckSafety) {
+		loadmodel.surfedges = (int*)(sb->data + sb->readcount);
+		return;
+	}
+
 	loadmodel.surfedges = (int *)Hunk_AllocNameNoFill(loadmodel.numsurfedges * structsize, "default hunk");
 
 	for (i = 0;i < loadmodel.numsurfedges;i++)
@@ -971,16 +1029,31 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 		}
 
 		MSG_InitReadBuffer(&miptexsb, sb->data + doffset, sb->cursize - doffset);
+		pixel_format = 0;
+		model_shared_texture_num_data = 0;
 		int mark = Hunk_LowMark();
 		if (loadmodel.ishlbsp)
 			data = W_ConvertWAD3TextureRGBA(&miptexsb);
 		else {
-			data = W_ConvertWAD2TextureDXT1(&miptexsb);
+			data = W_ConvertWAD2TextureRGBA(&miptexsb);
 			
 		}
 			
 
 		if (data) {
+
+			if (saveBSP) {
+				if (0 && (pixel_format == PIXELFORMAT_COMPRESSED_DXT1_RGB || pixel_format == PIXELFORMAT_COMPRESSED_DXT5_RGBA)) {
+					loadmodel.data_textures[i].data = data;
+					loadmodel.data_textures[i].num_data = model_shared_texture_num_data;
+
+				} else {
+					loadmodel.data_textures[i].data = miptexsb.data;
+					loadmodel.data_textures[i].num_data = model_shared_texture_num_data;
+				}
+				loadmodel.data_textures[i].data = miptexsb.data;
+				loadmodel.data_textures[i].num_data = model_shared_texture_num_data;
+			}
 
 			Image image = (Image){
 				.data = data,
@@ -999,7 +1072,7 @@ static void Mod_Q1BSP_LoadTextures(sizebuf_t *sb)
 
 		}
 
-		Hunk_FreeToLowMark(mark);
+		//Hunk_FreeToLowMark(mark);
 
 	}
 }
@@ -1075,7 +1148,8 @@ static void Mod_Q1BSP_LoadLighting(sizebuf_t *sb)
 		litfilename[MAX_QPATH-1] = 0;
 		int len = strnlen(litfilename, MAX_QPATH);
 		memcpy(&(litfilename[len-3]), "lit",3);
-		data = (unsigned char*)LoadFileData(litfilename, &filesize);
+		int beforeMark = Hunk_LowMark();
+		data = (unsigned char*)LoadFileDataToHunk(litfilename, &filesize);
 		if (data)
 		{
 			if (filesize == (fs_offset_t)(8 + sb->cursize * 3) && data[0] == 'Q' && data[1] == 'L' && data[2] == 'I' && data[3] == 'T')
@@ -1084,10 +1158,8 @@ static void Mod_Q1BSP_LoadLighting(sizebuf_t *sb)
 				if (i == 1)	
 				{
 					TraceLog(LOG_INFO, "loaded %s\n", litfilename);
-					loadmodel.lightdata = (unsigned char *)Hunk_AllocNameNoFill(filesize - 8, "default hunk");
+					loadmodel.lightdata = (unsigned char *)(data + 8);
 					loadmodel.num_lightdata = filesize-8;
-					memcpy(loadmodel.lightdata, data + 8, filesize - 8);
-					free(data);
 					return;
 				}
 				else
@@ -1099,7 +1171,7 @@ static void Mod_Q1BSP_LoadLighting(sizebuf_t *sb)
 				TraceLog(LOG_INFO, "model_shared.c: Corrupt .lit file (file size %i bytes, should be %i bytes), ignoring\n", (int) filesize, (int) (8 + sb->cursize * 3));
 			if (data)
 			{
-				free(data);
+				Hunk_FreeToLowMark(beforeMark);
 				data = NULL;
 			}
 		}
@@ -2144,6 +2216,57 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
 	PRINT("num of submodules %i", loadmodel.numsubmodels);
 	PRINT("light data %i", loadmodel.num_lightdata);
 
+	if (saveBSP && loadmodel.isbsp2) {
+		int filesize = (int)((unsigned char*)dataEnd - (unsigned char*)data);
+		unsigned char* immediate = (unsigned char*)Hunk_AllocNoFill(filesize);
+		sizebuf_t wsb = {0};
+		sizebuf_t tsb = {0};
+
+		MSG_InitReadBuffer(&wsb, immediate, filesize);
+		
+		memcpy(immediate, data, filesize);
+
+		int offset = 4 + 4 * 2 * HEADER_LUMPS;
+		MSG_WriteLittleLong(&wsb, SUL1VERSION);
+		 
+		
+		for (i = 0; i < HEADER_LUMPS; i++) {
+
+			if (i == LUMP_TEXTURES) { //TODO FIXME needs fix and further impovement
+				memcpy(immediate + offset, lumpsb[i].data, lumpsb[i].maxsize);
+				int texture_offset = 4 + (loadmodel.num_textures - 2)*4+10;
+				MSG_InitReadBuffer(&tsb, immediate + offset, lumpsb[i].maxsize);
+				//PRINT("HERE: val: %i ; dec: %i", MSG_ReadLittleLong(&tsb), (loadmodel.num_textures - 2));
+				MSG_WriteLittleLong(&tsb, (loadmodel.num_textures - 2));
+				for (int keron = 0; keron < loadmodel.num_textures - 2; keron++) {
+					
+					if (loadmodel.data_textures[keron].num_data && loadmodel.data_textures[keron].data) {
+						MSG_WriteLittleLong(&tsb, texture_offset);
+						memcpy(tsb.data + texture_offset, loadmodel.data_textures[keron].data, loadmodel.data_textures[keron].num_data);
+						texture_offset += loadmodel.data_textures[keron].num_data;
+					} else {
+						MSG_WriteLittleLong(&tsb, 0);
+					}
+					
+				}
+				MSG_WriteLittleLong(&wsb, offset);
+				MSG_WriteLittleLong(&wsb, lumpsb[i].maxsize);
+				offset += lumpsb[i].maxsize;
+				continue;
+			}
+
+
+			MSG_WriteLittleLong(&wsb, offset);
+			MSG_WriteLittleLong(&wsb, lumpsb[i].maxsize);
+			memcpy(immediate + offset, lumpsb[i].data, lumpsb[i].maxsize);
+			offset += lumpsb[i].maxsize;
+			
+		}
+
+
+		SaveFileData("penis", immediate, filesize);
+	}
+
     //free(loadmodel.edges);
     //free(loadmodel.surfedges);
 	//free(loadmodel.texinfo);
@@ -2156,6 +2279,122 @@ void loadBSP(model_t* mod, void* data, void* dataEnd)
     memcpy(mod, &loadmodel, sizeof(*mod));
 
 
+}
+
+//----------------------------------------------------------------------------------
+// Module Functions Definition: File System management
+//----------------------------------------------------------------------------------
+// Load data from file into a buffer
+unsigned char *LoadFileDataToHunk(const char *fileName, int *dataSize)
+{
+	int beforeMark = Hunk_LowMark();
+    unsigned char *data = NULL;
+    *dataSize = 0;
+
+    if (fileName != NULL)
+    {
+
+        FILE *file = fopen(fileName, "rb");
+
+        if (file != NULL)
+        {
+            // WARNING: On binary streams SEEK_END could not be found,
+            // using fseek() and ftell() could not work in some (rare) cases
+            fseek(file, 0, SEEK_END);
+            int size = ftell(file);     // WARNING: ftell() returns 'long int', maximum size returned is INT_MAX (2147483647 bytes)
+            fseek(file, 0, SEEK_SET);
+
+            if (size > 0)
+            {
+                data = (unsigned char *)Hunk_AllocNoFill(size * sizeof(unsigned char));
+
+                if (data != NULL)
+                {
+                    // NOTE: fread() returns number of read elements instead of bytes, so reading [1 byte, size elements]
+                    size_t count = fread(data, sizeof(unsigned char), size, file);
+
+                    // WARNING: fread() returns a size_t value, usually 'unsigned int' (32bit compilation) and 'unsigned long long' (64bit compilation)
+                    // dataSize is unified along raylib as a 'int' type, so, for file-sizes >INT_MAX (2147483647 bytes) there is a limitation
+                    if (count > 2147483647)
+                    {
+                        TraceLog(LOG_WARNING, "FILEIO: [%s] File is bigger than 2147483647 bytes, avoid using LoadFileData()", fileName);
+
+                        Hunk_FreeToLowMark(beforeMark);
+                        data = NULL;
+                    }
+                    else
+                    {
+                        *dataSize = (int)count;
+
+                        if ((*dataSize) != size) TraceLog(LOG_WARNING, "FILEIO: [%s] File partially loaded (%i bytes out of %i)", fileName, *dataSize, size);
+                        else TraceLog(LOG_INFO, "FILEIO: [%s] File loaded successfully", fileName);
+                    }
+                }
+                else TraceLog(LOG_WARNING, "FILEIO: [%s] Failed to allocated memory for file reading", fileName);
+            }
+            else TraceLog(LOG_WARNING, "FILEIO: [%s] Failed to read file", fileName);
+
+            fclose(file);
+        }
+        else TraceLog(LOG_WARNING, "FILEIO: [%s] Failed to open file", fileName);
+    }
+    else TraceLog(LOG_WARNING, "FILEIO: File name provided is not valid");
+
+    return data;
+}
+
+model_t loadMyMap(const char* filename)
+{
+	int beforeMark = Hunk_LowMark();
+    unsigned char* dataEnd = NULL;
+    int dataSize = 0;
+    unsigned char* data = LoadFileDataToHunk(filename, &dataSize); //getRawData(filename, &dataSize);
+    dataEnd = data + dataSize;
+
+    if (!data) (model_t){0};
+
+    int magic = *((int*)data);
+
+    model_t mod = {0};
+
+
+    strncpy(mod.name, filename, 128);
+    
+
+    if (magic == BSPVERSION) {
+        TraceLog(LOG_INFO, "MapLoader.c: version == 29");
+    } else if (magic == BSP2VERSION || magic == SUL1VERSION ) {
+        mod.isbsp2 = true;
+		
+		if (magic == SUL1VERSION) {
+			mod.dontCheckSafety = true;
+			TraceLog(LOG_INFO, "MapLoader.c: version == SUL1");
+		} else {
+			TraceLog(LOG_INFO, "MapLoader.c: version == BSP2");
+		}
+        
+    } else if (magic == HLBSPVERSION){
+        mod.ishlbsp = true;
+        TraceLog(LOG_INFO, "MapLoader.c: version == 30 (Half-life)");
+    } else {
+        TraceLog(LOG_ERROR, "MapLoader.c: Wrong BSP version");
+        Hunk_FreeToLowMark(beforeMark);
+        return (model_t){0};
+    }
+
+    TraceLog(LOG_INFO, "MapLoader.c: loaded successfully!");
+
+    
+
+    
+
+    loadBSP(&mod, data, dataEnd);
+
+
+
+
+
+    return mod;
 }
 
 

@@ -23,7 +23,6 @@ Command* getFirstCommand();
 
 extern Command cmd_help;
 extern Command cmd_cvars;
-extern Command cmd_map;
 extern Command cmd_textures;
 extern Command cmd_flush;
 extern Command cmd_hunk_print;

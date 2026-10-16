@@ -12,12 +12,14 @@
 
 #include "Texture.h"
 #include "model_shared.h"
-#include "MapLoader.h"
 #include "Zone.h"
 #include "G_local.h"
 #include "Shaders.h"
+#include "SysCvar.h"
 
 #define RESOURCES_SIZE 1024
+
+const char* global_mapToLoad;
 
 
 Tree mapTree = {0};
@@ -348,7 +350,11 @@ void initResources()
     UnloadImage(image);
 
     beforeMapMark = Hunk_LowMark();
-    loadMapResource("qbj3_radiatoryang.bsp");
+
+    global_mapToLoad = cv_map.value;
+    if (global_mapToLoad) loadMapResource(global_mapToLoad);
+
+
     
 
 }

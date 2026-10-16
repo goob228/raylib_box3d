@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#define CVAR_STRING_SIZE 16
+#define CVAR_STRING_SIZE 32
 
 typedef enum {
     CV_BOOL,
@@ -73,6 +73,7 @@ extern Cvar cv_FPS;
 extern Cvar cv_TPS;
 extern Cvar cv_wireframe;
 extern Cvar cv_noclip;
+extern Cvar cv_map;
 
 
 #endif //SYSCVAR_H

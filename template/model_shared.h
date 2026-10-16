@@ -72,6 +72,15 @@ typedef enum {
 	TEXTYPE_NUMLIQUIDS = TEXTYPE_LASTLIQUID + 1 - TEXTYPE_FIRSTLIQUID,
 } textype_t;
 
+typedef enum 
+{
+	FORM_NONE,
+	FORM_WAD2 = 1,
+	FORM_WAD3 = 2,
+	FORM_DXT1 = 3,
+	FORM_DXT5 = 4
+} texform_t;
+
 typedef struct texture_s
 {
     // name
@@ -84,6 +93,10 @@ typedef struct texture_s
     unsigned int material_id;
 
 	textype_t type;
+	texform_t form;
+	unsigned int num_data;
+	unsigned char* data;
+
 
 } texture_t;
 
@@ -274,6 +287,8 @@ typedef struct {
 	bool isbsp2rmqe;
 	bool isbspx;
 
+	bool dontCheckSafety;
+
 
 } model_t;
 
@@ -346,5 +361,7 @@ void loadPalette(const char* filename);
 
 void parseEntities(const char* str);
 
+
+model_t loadMyMap(const char* filename);
 
 #endif //MODEL_SHARED_H

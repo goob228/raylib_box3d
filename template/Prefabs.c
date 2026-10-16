@@ -643,7 +643,7 @@ void character_create2(Object* object, CharacterData* data, Position* pos, Objec
 	data->minSpeed = 0.01f;
 	data->stopSpeed = 1.0f;
 	data->accelerate = 10.0f;
-	data->friction = 4.0f;
+	data->friction = 7.0f;
 	data->gravity = 20.0f;
 	data->mass = 100.0f;
 	data->onGround = false;

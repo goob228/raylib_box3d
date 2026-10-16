@@ -23,7 +23,6 @@ bool execCommand(Command* cmd)
 
 Command cmd_help =      {"help",       "list all commands",            NULL, NULL, NULL, NULL};
 Command cmd_cvars =     {"cvars",      "list all console variables",   NULL, NULL, NULL, NULL};
-Command cmd_map =       {"map",        "load map from /res folder",    NULL, NULL, NULL, NULL};
 Command cmd_textures =  {"textures",   "list all available textures",  NULL, NULL, NULL, NULL};
 Command cmd_flush =     {"flush",      "Throw everything out, so new data will be demand cached",  NULL, NULL, NULL, NULL};
 Command cmd_hunk_print ={"hunk_print", "prints allocations",           NULL, NULL, NULL, NULL};
@@ -32,8 +31,7 @@ Command cmd_exit =      {"exit",       "exit the game",                NULL, NUL
 void initCmds() 
 {
     cmd_help.next = &cmd_cvars;
-    cmd_cvars.next = &cmd_map;
-    cmd_map.next = &cmd_textures;
+    cmd_cvars.next = &cmd_textures;
     cmd_textures.next = &cmd_flush;
     cmd_flush.next = &cmd_hunk_print;
     cmd_hunk_print.next = &cmd_exit;

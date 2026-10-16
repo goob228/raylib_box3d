@@ -16,6 +16,8 @@ extern Shader lightmap_shader;
 
 extern Shader discard_shader;
 
+extern const char* global_mapToLoad;
+
 typedef enum {
     RES_NONE,
     RES_MODEL,
