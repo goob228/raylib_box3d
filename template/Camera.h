@@ -31,8 +31,11 @@ typedef struct
 	Vector3 target;
 	Vector3 up;
 
-	float pitch;
-	float yaw;
+
+	double pitch;
+	double yaw;
+	double wanna_pitch;
+	double wanna_yaw;
 	float sensitivity;
 
 	float dist;
@@ -43,5 +46,6 @@ typedef struct
 
 void gc_init(Object* self);
 
+void gc_update(struct Object* obj);
 
 #endif

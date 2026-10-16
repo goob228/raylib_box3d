@@ -1,15 +1,37 @@
 #include "WindowHandler.h"
 
+#include <stdbool.h>
+
 #include <raylib.h>
-#define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
+
 #include <rlgl.h>
+
+#include "SysCvar.h"
+#include "SysCmd.h"
+#include "Menu.h"
+
+static void toggleVsync(Cvar* cvar)
+{	
+	
+	if (cvar->valueb == true)
+		SetWindowState(FLAG_VSYNC_HINT);
+
+		
+	else if (cvar->valueb == false)
+		ClearWindowState(FLAG_VSYNC_HINT);
+		
+}
+
+static void changeWidthHeight(Cvar* cvar)
+{
+	SetWindowSize(cv_width.valuei, cv_height.valuei);
+}
 
 
 void wh_startFrame(struct WindowHandler* self)
 {
 	BeginDrawing();
-	ClearBackground(SKYBLUE);
+	ClearBackground(BLACK);
 }
 
 void wh_endFrame(struct WindowHandler* self)
@@ -25,19 +47,36 @@ void wh_close(struct WindowHandler* self)
 
 void wh_init(struct WindowHandler* self, int FPS)
 {
+	
 
 	self->startFrame = (&wh_startFrame);
 	self->endFrame = (&wh_endFrame);
-	self->close = (&wh_close);
+	self->close = (&wh_close);	
 
-	self->screenWidth = 800;
-	self->screenHeight = 600;
+	self->screenWidth = cv_width.valuei;
+	self->screenHeight = cv_height.valuei;
 
-	SetConfigFlags(FLAG_VSYNC_HINT); 
+	SetTraceLogCallback(MyTraceLog);
+
+	setCvarCallback(&cv_vsync, toggleVsync);
+	setCvarCallback(&cv_width, changeWidthHeight);
+	setCvarCallback(&cv_height, changeWidthHeight);
+	
+	//SetConfigFlags(FLAG_MSAA_4X_HINT); 
 	InitWindow(self->screenWidth, self->screenHeight, "template");
+	SetTargetFPS(cv_FPS.valuei);
 
-
+	SetExitKey(KEY_NULL);
 	DisableCursor();
 }
+
+void wh_enableCursor() {
+	EnableCursor();
+}
+void wh_disableCursor() {
+	DisableCursor();
+}
+
+
 
 

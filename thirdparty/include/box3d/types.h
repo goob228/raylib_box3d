@@ -8,6 +8,7 @@
 #include "id.h"
 #include "math_functions.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define B3_DEFAULT_CATEGORY_BITS UINT64_MAX
@@ -912,7 +913,9 @@ typedef struct b3SphericalJointDef
 	/// The maximum motor torque, typically in newton-meters. Non-negative number.
 	float maxMotorTorque;
 
-	/// The desired motor angular velocity in radians per second.
+	/// The desired motor angular velocity in radians per second. This is the relative angular
+	/// velocity between the two bodies in world space.
+	/// motorVelocity = angularVelocityB - angularVelocityA
 	b3Vec3 motorVelocity;
 } b3SphericalJointDef;
 
@@ -1620,31 +1623,31 @@ typedef enum b3TOIState
 	b3_toiStateSeparated
 } b3TOIState;
 
-/// Time of impact output
+/// Time of impact output.
 typedef struct b3TOIOutput
 {
-	/// The type of result
+	/// The type of result.
 	b3TOIState state;
 
-	/// The hit point
+	/// The hit point. A shared point if overlapped.
 	b3Vec3 point;
 
-	/// The hit normal
+	/// The hit normal. Zero if overlapped.
 	b3Vec3 normal;
 
-	/// The sweep time of the collision
+	/// The sweep time of the collision. 0 if overlapped.
 	float fraction;
 
-	/// The final distance
+	/// The final distance. 0 if overlapped.
 	float distance;
 
-	/// Number of outer iterations
+	/// Number of outer iterations.
 	int distanceIterations;
 
-	/// Total number of push back iterations
+	/// Total number of push back iterations.
 	int pushBackIterations;
 
-	/// Total number of root iterations
+	/// Total number of root iterations.
 	int rootIterations;
 
 	/// Indicates that the time of impact detected initial
@@ -1817,6 +1820,15 @@ typedef struct b3PlaneResult
 	/// Closest point on the shape. May not be unique.
 	b3Vec3 point;
 
+	/// The index of the mesh or height field triangle hit.
+	int triangleIndex;
+
+	/// The index of the compound child shape.
+	int childIndex;
+
+	/// The material index.
+	int materialIndex;
+
 } b3PlaneResult;
 
 /// These are collision planes that can be fed to b3SolvePlanes. Normally
@@ -1856,6 +1868,22 @@ typedef struct b3BodyPlaneResult
 	/// The plane result.
 	b3PlaneResult result;
 } b3BodyPlaneResult;
+
+/// Body time of impact result for movers.
+typedef struct b3BodyTOIResult
+{
+	/// The hit point in world space.
+	b3Pos point;
+
+	/// The hit normal. Points from the body to the mover.
+	b3Vec3 normal;
+
+	/// The sweep time of the collision.
+	float fraction;
+
+	/// The hit shape.
+	b3ShapeId shapeId;
+} b3BodyTOIResult;
 
 /// Used to collect collision planes for character movers.
 /// Return true to continue gathering planes.
@@ -1968,7 +1996,7 @@ typedef struct b3HullFace
 } b3HullFace;
 
 /// 64-bit hull version. Useful for validating serialized data.
-#define B3_HULL_VERSION 0xDA5150191B994C01ull
+#define B3_HULL_VERSION 0x4A4C9587DE57485Cull
 
 /// A convex hull.
 /// @note This data structure has data hanging off the end and cannot be directly copied.
@@ -1977,11 +2005,8 @@ typedef struct b3HullData
 	/// Version must be first and match B3_HULL_VERSION
 	uint64_t version;
 
-	/// The total number of bytes for this hull.
-	int byteCount;
-
 	/// Hash of this hull (this field is zero when the hash is computed).
-	uint32_t hash;
+	uint64_t hash;
 
 	/// Axis-aligned box in local space.
 	b3AABB aabb;
@@ -2002,38 +2027,39 @@ typedef struct b3HullData
 	b3Matrix3 centralInertia;
 
 	/// The vertex count.
-	int vertexCount;
+	int32_t vertexCount;
 
 	/// Offset of the vertex array in bytes from the struct address.
-	int vertexOffset;
+	int32_t vertexOffset;
 
 	/// Offset of the point array in bytes from the struct address.
-	int pointOffset;
+	int32_t pointOffset;
 
 	/// This is the half-edge count (double the edge count)
-	int edgeCount;
+	int32_t edgeCount;
 
 	/// Offset of the edge array in bytes from the struct address.
-	int edgeOffset;
+	int32_t edgeOffset;
 
 	/// The face count. Hulls faces are convex polygons.
-	int faceCount;
+	int32_t faceCount;
 
 	/// Offset of the face plane array in bytes from the struct address.
-	int planeOffset;
+	int32_t planeOffset;
 
 	/// Offset of the face array in bytes from the struct address.
-	int faceOffset;
+	int32_t faceOffset;
 
 	/// Offset of structure of array (SOA) vertices
-	int soaVertexOffset;
+	int32_t soaVertexOffset;
 
 	/// Offset of structure of array (SOA) unit normal vectors
-	int soaNormalOffset;
+	int32_t soaNormalOffset;
 
-	/// Explicit padding. Hull identity is a content hash and memcmp over raw bytes,
-	/// so there must be no unnamed padding for struct copies to scramble.
-	int padding;
+	/// The total number of bytes for this hull.
+	int32_t byteCount;
+
+	/// Any padding must be explicit.
 } b3HullData;
 
 /// Efficient box hull
@@ -2046,7 +2072,7 @@ typedef struct b3BoxHull
 	b3HullHalfEdge boxEdges[24]; ///< Box half-edges.
 	b3Plane boxPlanes[6];		 ///< Box face planes.
 	b3HullFace boxFaces[6];		 ///< Box faces.
-	uint8_t padding[10];		 ///< Explicit padding, see b3HullData::padding.
+	uint8_t padding[2];			 ///< Explicit padding.
 	float vx[8];				 ///< vertex x
 	float vy[8];				 ///< vertex y
 	float vz[8];				 ///< vertex z
@@ -2063,13 +2089,17 @@ typedef struct b3BoxHull
  * @{
  */
 
-/// This is used to create a re-usable collision mesh.
+/// This is used to create a re-usable collision mesh. No pointers
+/// are held to this data in b3MeshData. So all this data can be temporary.
 typedef struct b3MeshDef
 {
-	/// Triangle vertices
+	/// Triangle vertices.
 	b3Vec3* vertices;
 
-	/// Triangle vertex indices. 3 for each triangle. CCW winding.
+	/// Stride between vertices. Use 0 for contiguous vertices.
+	size_t stride;
+
+	/// Triangle vertex indices. 3 for each triangle. CCW winding unless CW is indicated below.
 	int32_t* indices;
 
 	/// Triangle material index. 1 per triangle. Indexes into b3ShapeDef::materials.
@@ -2095,10 +2125,13 @@ typedef struct b3MeshDef
 
 	/// Compute triangle adjacency information using shared edges
 	bool identifyEdges;
+
+	/// Input indices have clockWise winding order.
+	bool clockWiseWinding;
 } b3MeshDef;
 
 /// 64-bit mesh version. Useful for validating serialized data.
-#define B3_MESH_VERSION 0xABD11AB62A6E886Dull
+#define B3_MESH_VERSION 0xAAAB9A00F1A8AAF7ull
 
 /// Triangle mesh edge flags.
 typedef enum b3MeshEdgeFlags
@@ -2172,11 +2205,11 @@ typedef struct b3MeshData
 	/// Version must be first.
 	uint64_t version;
 
-	/// The total number of bytes for this mesh.
-	int byteCount;
-
 	/// Hash of this mesh (this field is zero when the hash is computed)
-	uint32_t hash;
+	uint64_t hash;
+
+	/// The total number of bytes for this mesh.
+	int32_t byteCount;
 
 	/// Local axis-aligned box.
 	b3AABB bounds;
@@ -2185,37 +2218,40 @@ typedef struct b3MeshData
 	float surfaceArea;
 
 	/// The height of the bounding volume hierarchy.
-	int treeHeight;
+	int32_t treeHeight;
 
 	/// The number of degenerate triangles. Diagnostic.
-	int degenerateCount;
+	int32_t degenerateCount;
 
 	/// Offset of the node array in bytes from the struct address.
-	int nodeOffset;
+	int32_t nodeOffset;
 
 	/// The number of BVH nodes.
-	int nodeCount;
+	int32_t nodeCount;
 
 	/// Offset of the vertex array in bytes from the struct address.
-	int vertexOffset;
+	int32_t vertexOffset;
 
 	/// The number of vertices.
-	int vertexCount;
+	int32_t vertexCount;
 
 	/// Offset of the triangle array in bytes from the struct address.
-	int triangleOffset;
+	int32_t triangleOffset;
 
 	/// The number of triangles.
-	int triangleCount;
+	int32_t triangleCount;
 
 	/// Offset of the material array in bytes from the struct address.
-	int materialOffset;
+	int32_t materialOffset;
 
 	/// The number of materials.
-	int materialCount;
+	int32_t materialCount;
 
 	/// Offset of the triangle flag array in bytes from the struct address.
-	int flagsOffset;
+	int32_t flagsOffset;
+
+	/// Explicit padding.
+	int32_t padding;
 } b3MeshData;
 
 /// This allows mesh data to be re-used with different scales.
@@ -2237,7 +2273,7 @@ typedef struct b3Mesh
  * @{
  */
 
-/// Data used to create a height field
+/// Data used to create a height field. No pointers are held to this data.
 typedef struct b3HeightFieldDef
 {
 	/// Grid point heights
@@ -2276,7 +2312,7 @@ typedef struct b3HeightFieldDef
 #define B3_HEIGHT_FIELD_HOLE 0xFF
 
 /// 64-bit height-field version. Useful for validating serialized data.
-#define B3_HEIGHT_FIELD_VERSION 0x8B18CBD138A6BC84ull
+#define B3_HEIGHT_FIELD_VERSION 0x8E41E5FB084848F8ull
 
 /// A height field with compressed storage.
 /// @note This data structure has data hanging off the end and cannot be directly copied.
@@ -2285,11 +2321,11 @@ typedef struct b3HeightFieldData
 	/// Version must be first and match B3_HEIGHT_FIELD_VERSION
 	uint64_t version;
 
+	/// Hash of this height field (this field is zero when the hash is computed).
+	uint64_t hash;
+
 	/// The total number of bytes for this height field.
 	int byteCount;
-
-	/// Hash of this height field (this field is zero when the hash is computed).
-	uint32_t hash;
 
 	/// The local axis-aligned bounding box.
 	b3AABB aabb;
@@ -2307,29 +2343,28 @@ typedef struct b3HeightFieldData
 	b3Vec3 scale;
 
 	/// The number of grid columns along the local x-axis.
-	int columnCount;
+	int32_t columnCount;
 
 	/// The number of grid rows along the local z-axis.
-	int rowCount;
+	int32_t rowCount;
 
 	/// Offset of the compressed height array in bytes from the struct address.
 	/// uint16_t, one per grid point.
-	int heightsOffset;
+	int32_t heightsOffset;
 
 	/// Offset of the material index array in bytes from the struct address.
 	/// uint8_t, one per cell.
-	int materialOffset;
+	int32_t materialOffset;
 
 	/// Offset of the flag array in bytes from the struct address.
 	/// uint8_t, one per triangle.
-	int flagsOffset;
+	int32_t flagsOffset;
 
 	/// Triangle winding.
-	bool clockwise;
+	uint8_t clockwise;
 
-	/// Explicit padding. Identity is a content hash over raw bytes, so there must
-	/// be no unnamed padding for struct copies to scramble.
-	uint8_t padding[3];
+	/// Explicit padding.
+	uint8_t padding[7];
 } b3HeightFieldData;
 
 /**@}*/ // height_field
@@ -2973,7 +3008,7 @@ typedef struct b3DebugShape
 typedef struct b3DebugDraw
 {
 	/// Draws a user shape. The userShape pointer is owned by the application and is known to Box3D as
-	/// an opaque pointer returned from b3CreateDebugShapeCallback. When this is called the drawn shape has 
+	/// an opaque pointer returned from b3CreateDebugShapeCallback. When this is called the drawn shape has
 	/// passed a culling test against drawingBounds below.
 	void ( *DrawShapeFcn )( void* userShape, b3WorldTransform transform, b3HexColor color, void* context );
 

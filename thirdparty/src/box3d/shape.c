@@ -352,7 +352,14 @@ b3ShapeId b3CreateCapsuleShape( b3BodyId bodyId, const b3ShapeDef* def, const b3
 b3ShapeId b3CreateHullShape( b3BodyId bodyId, const b3ShapeDef* def, const b3HullData* hull )
 {
 	B3_VALIDATE( b3IsValidHull( hull ) );
-	B3_VALIDATE( hull->hash != 0 );
+	B3_ASSERT( hull->version == B3_HULL_VERSION );
+	B3_ASSERT( hull->hash != 0 );
+
+	if ( hull->version != B3_HULL_VERSION )
+	{
+		return b3_nullShapeId;
+	}
+
 	b3ShapeId shapeId = b3CreateShape( bodyId, def, hull, b3_hullShape, b3Transform_identity, b3Vec3_one, false );
 	if ( shapeId.index1 != 0 )
 	{
@@ -371,6 +378,14 @@ b3ShapeId b3CreateTransformedHullShape( b3BodyId bodyId, const b3ShapeDef* def, 
 										b3Vec3 scale )
 {
 	B3_VALIDATE( b3IsValidHull( hull ) );
+	B3_ASSERT( hull->version == B3_HULL_VERSION );
+	B3_ASSERT( hull->hash != 0 );
+
+	if ( hull->version != B3_HULL_VERSION )
+	{
+		return b3_nullShapeId;
+	}
+
 	b3ShapeId shapeId = b3CreateShape( bodyId, def, hull, b3_hullShape, transform, scale, true );
 	if ( shapeId.index1 != 0 )
 	{
@@ -392,7 +407,14 @@ b3ShapeId b3CreateTransformedHullShape( b3BodyId bodyId, const b3ShapeDef* def, 
 b3ShapeId b3CreateMeshShape( b3BodyId bodyId, const b3ShapeDef* def, const b3MeshData* mesh, b3Vec3 scale )
 {
 	B3_VALIDATE( b3IsValidMesh( mesh ) );
-	B3_VALIDATE( mesh->hash != 0 );
+	B3_ASSERT( mesh->version == B3_MESH_VERSION );
+	B3_ASSERT( mesh->hash != 0 );
+
+	if ( mesh->version != B3_MESH_VERSION )
+	{
+		return b3_nullShapeId;
+	}
+
 	b3ShapeId shapeId = b3CreateShape( bodyId, def, mesh, b3_meshShape, b3Transform_identity, scale, true );
 	if ( shapeId.index1 != 0 )
 	{
@@ -409,7 +431,14 @@ b3ShapeId b3CreateMeshShape( b3BodyId bodyId, const b3ShapeDef* def, const b3Mes
 
 b3ShapeId b3CreateHeightFieldShape( b3BodyId bodyId, const b3ShapeDef* def, const b3HeightFieldData* heightField )
 {
-	B3_VALIDATE( heightField->hash != 0 );
+	B3_ASSERT( heightField->version == B3_HEIGHT_FIELD_VERSION );
+	B3_ASSERT( heightField->hash != 0 );
+
+	if ( heightField->version != B3_HEIGHT_FIELD_VERSION )
+	{
+		return b3_nullShapeId;
+	}
+
 	b3ShapeId shapeId = b3CreateShape( bodyId, def, heightField, b3_heightShape, b3Transform_identity, b3Vec3_one, false );
 	if ( shapeId.index1 != 0 )
 	{
@@ -426,6 +455,13 @@ b3ShapeId b3CreateHeightFieldShape( b3BodyId bodyId, const b3ShapeDef* def, cons
 
 b3ShapeId b3CreateBakedCompoundShape( b3BodyId bodyId, b3ShapeDef* def, const b3CompoundData* compound )
 {
+	B3_ASSERT( compound->version == B3_COMPOUND_VERSION );
+
+	if ( compound->version != B3_COMPOUND_VERSION )
+	{
+		return b3_nullShapeId;
+	}
+
 	b3ShapeId shapeId = b3CreateShape( bodyId, def, compound, b3_compoundShape, b3Transform_identity, b3Vec3_one, false );
 	if ( shapeId.index1 != 0 )
 	{
@@ -742,7 +778,7 @@ b3ShapeExtent b3ComputeShapeExtent( const b3Shape* shape, b3Vec3 localCenter )
 			b3Vec3 c1 = b3Sub( shape->capsule.center1, localCenter );
 			b3Vec3 c2 = b3Sub( shape->capsule.center2, localCenter );
 			b3Vec3 r = { radius, radius, radius };
-			extent.maxExtent = b3Add( b3Max( c1, c2 ), r );
+			extent.maxExtent = b3Add( b3Max( b3Abs( c1 ), b3Abs( c2 ) ), r );
 		}
 		break;
 
@@ -762,9 +798,9 @@ b3ShapeExtent b3ComputeShapeExtent( const b3Shape* shape, b3Vec3 localCenter )
 		{
 			float radius = shape->sphere.radius;
 			extent.minExtent = radius;
+			b3Vec3 h = b3Abs( b3Sub( shape->sphere.center, localCenter ) );
 			b3Vec3 r = { radius, radius, radius };
-			b3Vec3 p = b3Add( b3Sub( shape->sphere.center, localCenter ), r );
-			extent.maxExtent = b3Abs( b3Sub( p, localCenter ) );
+			extent.maxExtent = b3Add( h, r );
 		}
 		break;
 
@@ -780,7 +816,7 @@ b3ShapeExtent b3ComputeShapeExtent( const b3Shape* shape, b3Vec3 localCenter )
 			float r2 = b3Length( b3Sub( aabb.upperBound, localCenter ) );
 			extent.minExtent = b3MinFloat( r1, r2 );
 			b3Vec3 p = b3FarthestPointOnAABB( aabb, localCenter );
-			extent.maxExtent = b3Abs( p );
+			extent.maxExtent = b3Abs( b3Sub( p, localCenter ) );
 		}
 		break;
 
@@ -903,32 +939,6 @@ bool b3OverlapShape( const b3Shape* shape, b3Transform transform, const b3ShapeP
 			B3_ASSERT( false );
 			return false;
 	}
-
-#if 0
-	b3Vec3 localPoints[B3_MAX_SHAPE_CAST_POINTS];
-	b3ShapeProxy localProxy;
-
-	b3Transform invTransform = b3InvertTransform( transform );
-	b3Matrix3 R = b3MakeMatrixFromQuat( invTransform.q );
-
-	localProxy.count = b3MinInt( proxy->count, B3_MAX_SHAPE_CAST_POINTS );
-	for ( int i = 0; i < localProxy.count; ++i )
-	{
-		localPoints[i] = b3Add( b3MulMV( R, proxy->points[i] ), invTransform.p );
-	}
-
-	localProxy.points = localPoints;
-	localProxy.radius = proxy->radius;
-
-	if ( type == b3_meshShape )
-	{
-		return b3OverlapMesh( &localProxy, shape->mesh.data, shape->mesh.scale );
-	}
-
-	B3_ASSERT( type == b3_heightShape );
-
-	return b3OverlapHeightField( &localProxy, shape->heightField );
-#endif
 }
 
 int b3CollideMover( b3PlaneResult* planes, int planeCapacity, const b3Shape* shape, b3Transform transform,
@@ -980,6 +990,7 @@ int b3CollideMover( b3PlaneResult* planes, int planeCapacity, const b3Shape* sha
 	{
 		planes[i].plane.normal = b3RotateVector( transform.q, planes[i].plane.normal );
 		planes[i].point = b3TransformPoint( transform, planes[i].point );
+		planes[i].materialIndex = b3ClampInt( planes[i].materialIndex, 0, shape->materialCount - 1 );
 	}
 
 	return planeCount;

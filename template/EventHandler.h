@@ -13,8 +13,9 @@
 #define EH_K_ESC     (1 << 5)
 #define EH_K_QUIT    (1 << 6)	
 #define EH_K_RESTART (1 << 7)
-#define EH_K_E (1 << 8)
+#define EH_K_E 		(1 << 8)
 #define EH_K_SHIFT (1 << 9)
+#define EH_K_GRAVE (1 << 10)
 
 
 
@@ -23,6 +24,7 @@
 typedef struct EventHandler {
 	float mx;
 	float my;
+	float s;
 	uint16_t keys;
 	uint16_t pressedKeys;
 } EventHandler;

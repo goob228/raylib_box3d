@@ -2,7 +2,8 @@
 #define WINDOWHANDLER_H
 
 
-#include <raylib.h>
+
+
 
 
 typedef struct WindowHandler {
@@ -18,5 +19,7 @@ typedef struct WindowHandler {
 
 void wh_init(struct WindowHandler* self, int FPS);
 
+void wh_enableCursor();
+void wh_disableCursor();
 
 #endif

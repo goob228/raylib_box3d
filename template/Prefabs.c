@@ -1,20 +1,31 @@
 #include "Prefabs.h"
 
 #include <math.h>
-
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "Object.h"
 #include "Camera.h"
 
 #include <box3d/box3d.h>
 #include <rlgl.h>
+#include <external/glad.h>
 
-#include "Playground.h"
+#include "Resource.h"
 #include "EventHandler.h"
 #include "Animation.h"
+#include "G_local.h"
+#include "Zone.h"
+#include "model_shared.h"
+#include "SysCvar.h"
+
+extern EventHandler eventhandlers[5];
 
 
+extern Object camera;
 
+/*
 
 
 Object* wheel_create(Object* object)
@@ -46,7 +57,7 @@ void wheel_update(Object* obj, Playground* playground)
 	if (wheeldata->car) {
 		self->pos = (Vector3){ wheeldata->defaultPos.x, 
 				wheeldata->defaultPos.y - wheeldata->prevHeight + wheeldata->radius, wheeldata->defaultPos.z};
-		wheeldata->YZangle += wheeldata->speed / wheeldata->radius * playground->targetDeltaTime;
+		wheeldata->YZangle += wheeldata->speed / wheeldata->radius * host_netinterval;
 		wheeldata->YZangle = fmodf(wheeldata->YZangle, 2 * PI);
 		self->rot = QuaternionFromEuler(wheeldata->YZangle, wheeldata->angle, 0.0f);
 	}
@@ -172,14 +183,14 @@ void car_update(Object* obj, Playground* playground)
 
 		if (cardata->accelerating) {
 
-			((WheelData*)cardata->wheels[i]->data)->speed += cardata->torqueCurve.evaluate(&cardata->torqueCurve, ((WheelData*)cardata->wheels[i]->data)->speed / cardata->maxSpeed) * cardata->torque * playground->targetDeltaTime;
+			((WheelData*)cardata->wheels[i]->data)->speed += cardata->torqueCurve.evaluate(&cardata->torqueCurve, ((WheelData*)cardata->wheels[i]->data)->speed / cardata->maxSpeed) * cardata->torque * host_netinterval;
 
 			//torqueforce = _torqueCurve.evaluate(wheelVel.z / _maxSpeed) * _torque * b3Vec3_axisZ;
 			//vecToWheel(&torqueforce, -_wheels[i]->_angle);
 			//torqueforce = b3Body_GetWorldVector(bid, torqueforce);
 		}
 		else {
-			float basicFriction = 10.0f * playground->targetDeltaTime;
+			float basicFriction = 10.0f * host_netinterval;
 			if (((WheelData*)cardata->wheels[i]->data)->speed > 0.0f) 
 				((WheelData*)cardata->wheels[i]->data)->speed -= Clamp(basicFriction, 0.0f, ((WheelData*)cardata->wheels[i]->data)->speed);
 			else 
@@ -187,7 +198,7 @@ void car_update(Object* obj, Playground* playground)
 		}
 		
 
-		float maxVelFric = 30.0f * playground->targetDeltaTime;
+		float maxVelFric = 30.0f * host_netinterval;
 		
 		
 
@@ -246,7 +257,7 @@ void car_update(Object* obj, Playground* playground)
 			//if (_accelerating);
 			((WheelData*)cardata->wheels[i]->data)->speed -= diff;
 
-			frictionforce = (b3Vec3){ -wheelVel.x * (float)playground->targetFPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
+			frictionforce = (b3Vec3){ -wheelVel.x * (float)host_netTPS * bodyMass * 0.25f, 0.0f, 0.0f }; //-wheelVel.x * (float)playground->_targetFPS * b3Vec3_axisX * bodyMass * 0.25f;
 			vecToWheel(&frictionforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			frictionforce = b3Body_GetWorldVector(bid, frictionforce);
 			
@@ -254,7 +265,7 @@ void car_update(Object* obj, Playground* playground)
 
 			frictionforce = b3MulSub(frictionforce, friction_force_factor, result.normal);
 
-			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)playground->targetFPS * bodyMass * 0.25f };
+			torqueforce = (b3Vec3){ 0.0f, 0.0f, diff * (float)host_netTPS * bodyMass * 0.25f };
 				//diff * (float)playground->_targetFPS * b3Vec3_axisZ * bodyMass * 0.25f;
 			vecToWheel(&torqueforce, -((WheelData*)cardata->wheels[i]->data)->angle);
 			torqueforce = b3Body_GetWorldVector(bid, torqueforce);
@@ -298,11 +309,14 @@ void car_update(Object* obj, Playground* playground)
 	cardata->accelerating = false;
 	cardata->braking = false;
 }
+*/
+
+static CharacterData* curr_char_data;
 
 static bool MoverFilterCallback( b3ShapeId shapeId, void* context )
 {
 	Object* self = (Object*)context;
-	CharacterData* data = (CharacterData*)self->data;
+	CharacterData* data = curr_char_data;
 	for ( int i = 0; i < data->ignoreCount; ++i )
 	{
 		if ( B3_ID_EQUALS( shapeId, data->ignoreShapeIds[i] ) )
@@ -323,7 +337,7 @@ static bool PlaneResultFcn( b3ShapeId shapeId, const b3PlaneResult* planeResults
 	}
 
 	Object* self = (Object*)context;
-	CharacterData* data = (CharacterData*)self->data;
+	CharacterData* data = curr_char_data;
 
 	float maxPush = FLT_MAX;
 	bool clipVelocity = true;
@@ -353,12 +367,22 @@ static bool PlaneResultFcn( b3ShapeId shapeId, const b3PlaneResult* planeResults
 	return true;
 }
 
-
-
-void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 right, b3Vec2 throttle, bool clipVelocity)
+void character_solveMove2(Object* obj, CharacterData* data, float timeStep, b3Vec3 forward, b3Vec3 right, b3Vec2 throttle, bool clipVelocity)
 {
 	Object* self = obj;
-	CharacterData* data = (CharacterData*)self->data;
+
+	curr_char_data = data;
+
+	if (cv_noclip.valueb) {
+		data->trans.p = b3MulAdd(data->trans.p, throttle.x, forward);
+		data->trans.p = b3MulAdd(data->trans.p, throttle.y, right);
+		data->trans.p = b3Add(data->trans.p, (b3Vec3){0.0f, data->velocity.y * timeStep * data->maxSpeed, 0.0f});
+		data->velocity.x = 0.0f;
+		data->velocity.y = 0.0f;
+		data->velocity.z = 0.0f;
+		data->onGround = true;
+		return;
+	}
 
 	float speed = b3Length(data->velocity);
 	if (speed < data->minSpeed){
@@ -408,11 +432,11 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	
 	data->velocity.y -= data->gravity * timeStep;
 
-	b3WorldId worldId = data->playground->worldId;
+	b3WorldId worldId = g_worldid;
 	
 	float pogoRestLength = 1.5f + data->capsule.radius;
 	float rayLength = pogoRestLength + data->capsule.radius;
-	data->trans.p = (b3Pos){self->pos.x, self->pos.y, self->pos.z};
+	//data->trans.p = b3ToVec3(self->posCurr);
 	b3Pos rayOrigin = b3TransformWorldPoint(data->trans, data->capsule.center1);
 	b3Vec3 rayTranslation = (b3Vec3){0.0f, -rayLength, 0.0f};
 	b3QueryFilter skipTeamFilter = { 1, ~2u };
@@ -434,7 +458,7 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 		float zeta = 0.7f;
 		float hertz = 4.0f;
 		float omega = 2.0f * B3_PI * hertz;
-		float omegaH = omega * timeStep;
+		float omegaH = omega * (1.0f / 60.0f); // there was omega * timestep but i couldnt figure out how to fix deffirent height at different
 		float prevPogoVelocity = data->pogoVelocity;
 		data->pogoVelocity = ( data->pogoVelocity - omega * omegaH * ( pogoCurrentLength - pogoRestLength ) ) /
 						 ( 1.0f + 2.0f * zeta * omegaH + omegaH * omegaH );
@@ -492,6 +516,8 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 		}
 
 	}
+
+
 	float invMassA = 1.0f/data->mass;
 	for (int i = 0; i < data->planeCount; i++){
 		b3BodyId bodyId = b3Shape_GetBody(data->planeExtras[i].shapeId);
@@ -542,81 +568,82 @@ void character_solveMove(Object* obj, float timeStep, b3Vec3 forward, b3Vec3 rig
 	}
 }
 
-void character_update(Object* obj, Playground* playground)
+void character_update2(Object* obj, CharacterData* data, EventPtr* eventptr, Position* pos, Rotater* rot)
 {
 	Object* self = obj;
-	CharacterData* data = (CharacterData*)self->data;
-	self->pos = data->trans.p;
-	self->updateMatrix(self);
+	pos->prev = pos->curr;
+	pos->curr = b3ToPos(data->trans.p);
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	b3Vec2 throttle = { 0.0f, 0.0f };
 	b3Vec3 forward = camdata->getForward(data->camera);
 	b3Vec3 right = camdata->getRight(data->camera);
 	right = b3Normalize(right);
-	forward.y = 0.0f;
+	if (!cv_noclip.valueb) {
+		forward.y = 0.0f;
+	}
+	
 	forward = b3Normalize(forward);
+	
+	EventHandler* ev = eventptr->ptr;
 
-	if (playground->eh.keys & EH_K_W) {
+	if (ev->keys & EH_K_W) {
 		throttle.x += 1.0f;
 	}
-	if (playground->eh.keys & EH_K_S) {
+	if (ev->keys & EH_K_S) {
 		throttle.x -= 1.0f;
 	}
-	if (playground->eh.keys & EH_K_A) {
+	if (ev->keys & EH_K_A) {
 		throttle.y += 1.0f;
 	}
-	if (playground->eh.keys & EH_K_D) {
+	if (ev->keys & EH_K_D) {
 		throttle.y -= 1.0f;
 	}
 
-	if ((playground->eh.keys & EH_K_SPACE) && data->onGround == true) {
+	if ((ev->keys & EH_K_SPACE) && data->onGround == true) {
 		data->velocity.y = data->jumpSpeed;
 		data->onGround = false;
 	}
-	if (data->onGround && (playground->eh.keys & EH_K_SHIFT)) {
+	if (data->onGround && (ev->keys & EH_K_SHIFT)) {
 		data->sprint = true;
 	} else {
 		data->sprint = false;
 	}
 
-	float hertz = playground->targetFPS;
+	float hertz = host_netTPS;
 	float timeStep = hertz > 0.0f ? 1.0f / hertz : 0.0f;
 
-	character_solveMove(self, timeStep, forward, right, throttle, true);
-	b3Pos position = self->pos;
+	character_solveMove2(self, data, timeStep, forward, right, throttle, true);
 }
 
-void char_draw(struct Object* self, Playground* playground)
+void char_draw(struct Object* self)
 {	
 	CharacterData* data = (CharacterData*)self->data;
 	if (!data->camera) return;
 	CameraData* camdata = (CameraData*)data->camera->data;
 	if (camdata->type == CAM_FIRST_PERSON) return;
-	playground->models[self->modelId].transform = self->transform;
-	playground->models[self->modelId].materials[0].maps[MATERIAL_MAP_ALBEDO].texture = playground->textures[self->texId];
-	DrawModel(playground->models[self->modelId], (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	Model md = getModelResource(&(self->modelres));
+	md.transform = self->transform;
+	md.materials[0].maps[MATERIAL_MAP_ALBEDO].texture = getTextureResource(&(self->texres));
+	DrawModel(md, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
 }
 
 
-
-Object* character_create(Object* object, Object* camera, Playground* playground)
+void character_create2(Object* object, CharacterData* data, Position* pos, Object* camera)
 {
 	Object* self = object;
-	CharacterData* data = (CharacterData*)self->data;
 	
 	data->capsule = (b3Capsule){ { 0.0f, -0.25f, 0.0f }, { 0.0f, 0.25f, 0.0f }, 0.2f };
 	data->trans = b3Transform_identity;
-	data->trans.p = (b3Vec3){self->pos.x, self->pos.y, self->pos.z};
+	data->trans.p = (b3Vec3){pos->curr.x, pos->curr.y, pos->curr.z};
 	data->velocity = b3Vec3_zero;
 	data->camera = camera;
-	data->playground = playground;
 	data->jumpSpeed = 10.0f;
 	data->maxSpeed = 8.0f;
 	data->minSpeed = 0.01f;
 	data->stopSpeed = 1.0f;
 	data->accelerate = 10.0f;
-	data->friction = 4.0f;
+	data->friction = 7.0f;
 	data->gravity = 20.0f;
 	data->mass = 100.0f;
 	data->onGround = false;
@@ -629,8 +656,684 @@ Object* character_create(Object* object, Object* camera, Playground* playground)
 
 	data->pogoVelocity = 0.0f;
 	
-	self->update = character_update;
-	self->draw = char_draw;
 	
+
+}
+
+
+
+#define DotProduct(x,y)					((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
+
+//===============
+//Mod_PointInLeaf
+//===============
+
+mleaf_t *Mod_PointInLeaf (float p[3])
+{
+	mnode_t		*node;
+	float		d;
+	mplane_t	*plane;
+
+	if (!g_mapModel.data_nodes)
+		TraceLog(LOG_ERROR, "Prefabs.c: Mod_PointInLeaf: bad model");
+
+	node = g_mapModel.data_nodes;
+	while (1)
+	{
+		if (node->combinedsupercontents < 0)
+			return (mleaf_t *)node;
+		plane = node->plane;
+		d = DotProduct(p,plane->normal) - plane->dist;
+		if (d > 0)
+			node = node->children[0];
+		else
+			node = node->children[1];
+	}
+
+	return NULL;	// never reached
+}
+
+
+typedef uint8_t byte;
+
+
+//===================
+//Mod_DecompressVis
+//===================
+
+
+static byte* mod_decompressed = NULL;
+static int mod_decompressed_capacity = 0;
+
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
+
+
+static byte *Mod_DecompressVis (byte *in)
+{
+	int		c;
+	byte	*out;
+	byte	*outend;
+	int		row;
+
+	row = (g_mapModel.num_leafs+7)>>3;
+	if (mod_decompressed == NULL || row > mod_decompressed_capacity)
+	{
+		mod_decompressed_capacity = row;
+		mod_decompressed = (byte *)Z_Realloc(mod_decompressed, mod_decompressed_capacity);
+		if (!mod_decompressed)
+			TraceLog(LOG_ERROR, "Mod_DecompressVis: realloc() failed on %d bytes", mod_decompressed_capacity);
+	}
+	out = mod_decompressed;
+	outend = mod_decompressed + row;
+
+	if (!in)
+	{	// no vis info, so make all visible
+		while (row)
+		{
+			*out++ = 0xff;
+			row--;
+		}
+		return mod_decompressed;
+	}
+
+	do
+	{
+		if (*in)
+		{
+			*out++ = *in++;
+			continue;
+		}
+
+		c = in[1];
+		in += 2;
+		while (c)
+		{
+			if (out == outend)
+			{
+				if(!g_mapModel.viswarn) {
+					g_mapModel.viswarn = true;
+					TraceLog(LOG_WARNING, "Mod_DecompressVis: output overrun on model \"%s\"\n", g_mapModel.name);
+				}
+				return mod_decompressed;
+			}
+			*out++ = 0;
+			c--;
+		}
+	} while (out - mod_decompressed < row);
+
+	return mod_decompressed;
+}
+
+
+typedef struct {
+	int offset;
+	int count;
+} offset_count;
+
+typedef struct {
+	offset_count* ofc;
+	int count;
+	int size;
+} mesh_chain;
+
+mesh_chain* g_chain;
+
+typedef struct {
+	unsigned short* indices;
+	int trianglecount;
+} mutable_indices;
+
+mutable_indices* g_triangle;
+
+void drawMyMesh(Mesh mesh, Material mat, Matrix transform, int firstTri, int triCount)
+{
+
+    if (triCount == 0) return;
+
+    rlEnableShader(mat.shader.id);
+
+    if (mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE] != -1)
+    {
+        float values[4] = {
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.r/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.g/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.b/255.0f,
+            (float)mat.maps[MATERIAL_MAP_DIFFUSE].color.a/255.0f
+        };
+
+        rlSetUniform(mat.shader.locs[SHADER_LOC_COLOR_DIFFUSE], values, SHADER_UNIFORM_VEC4, 1);
+    }
+
+
+    // Get a copy of current matrices to work with,
+    // in case stereo render is required, and they need to be modified
+    // NOTE: At this point the modelview matrix contains the view matrix (camera)
+    // That's because BeginMode3D() sets it and there is no model-drawing function
+    // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matModelView = MatrixIdentity();
+    Matrix matProjection = rlGetMatrixProjection();
+
+    // Upload view and projection matrices (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_VIEW] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_VIEW], matView);
+    if (mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_PROJECTION], matProjection);
+
+    // Accumulate several model transformations:
+    //    transform: model transformation provided (includes DrawModel() params combined with model.transform)
+    //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
+    matModel = MatrixMultiply(transform, rlGetMatrixTransform());
+
+    // Model transformation matrix is sent to shader uniform location: SHADER_LOC_MATRIX_MODEL
+    if (mat.shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MODEL], matModel);
+
+    // Get model-view matrix
+    matModelView = MatrixMultiply(matModel, matView);
+
+    // Upload model normal matrix (if locations available)
+    if (mat.shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
+    //-----------------------------------------------------
+
+    // Bind active texture maps (if available)
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Enable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlEnableTextureCubemap(mat.maps[i].texture.id);
+            else rlEnableTexture(mat.maps[i].texture.id);
+
+            rlSetUniform(mat.shader.locs[SHADER_LOC_MAP_DIFFUSE + i], &i, SHADER_UNIFORM_INT, 1);
+        }
+    }
+
+    rlEnableVertexArray(mesh.vaoId);
+
+    int eyeCount = 1;
+    if (rlIsStereoRenderEnabled()) eyeCount = 2;
+
+    for (int eye = 0; eye < eyeCount; eye++)
+    {
+        // Calculate model-view-projection matrix (MVP)
+        Matrix matModelViewProjection = MatrixIdentity();
+        if (eyeCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+        else
+        {
+            // Setup current eye viewport (half screen width)
+            rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
+            matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+        }
+
+        // Send combined model-view-projection matrix to shader
+        rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
+
+        // Draw mesh
+        if (mesh.indices != NULL && g_triangle != NULL)  {
+			rlUpdateVertexBufferElements(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES], g_triangle->indices, g_triangle->trianglecount*3*sizeof(unsigned short), 0);
+			rlDrawVertexArrayElements(0, g_triangle->trianglecount*3, 0);
+			rlCheckErrors();
+		}
+        else rlDrawVertexArray(0, mesh.vertexCount);
+    }
+
+    // Unbind all bound texture maps
+    for (int i = 0; i < 12; i++)
+    {
+        if (mat.maps[i].texture.id > 0)
+        {
+            // Select current shader texture slot
+            rlActiveTextureSlot(i);
+
+            // Disable texture for active slot
+            if ((i == MATERIAL_MAP_IRRADIANCE) ||
+                (i == MATERIAL_MAP_PREFILTER) ||
+                (i == MATERIAL_MAP_CUBEMAP)) rlDisableTextureCubemap();
+            else rlDisableTexture();
+        }
+    }
+
+    // Disable all possible vertex array objects (or VBOs)
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
+    rlDisableVertexBufferElement();
+
+    // Disable shader program
+    rlDisableShader();
+
+    // Restore rlgl internal modelview and projection matrices
+    rlSetMatrixModelview(matView);
+    rlSetMatrixProjection(matProjection);
+}
+
+void drawMyMap(Model mod, Matrix transform, mutable_indices* m_triangles)
+{
+	//MATERIAL_MAP_METALNESS
+
+    rlEnableShader(lightmap_shader.id);
+
+
+    // Get a copy of current matrices to work with,
+    // in case stereo render is required, and they need to be modified
+    // NOTE: At this point the modelview matrix contains the view matrix (camera)
+    // That's because BeginMode3D() sets it and there is no model-drawing function
+    // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
+    Matrix matView = rlGetMatrixModelview();
+    Matrix matModelView = MatrixIdentity();
+    Matrix matProjection = rlGetMatrixProjection();
+
+    // Upload view and projection matrices (if locations available)
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_VIEW] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_VIEW], matView);
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_PROJECTION] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_PROJECTION], matProjection);
+
+    // Accumulate several model transformations:
+    //    transform: model transformation provided (includes DrawModel() params combined with model.transform)
+    //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
+    matModel = MatrixMultiply(transform, rlGetMatrixTransform());
+
+    // Model transformation matrix is sent to shader uniform location: SHADER_LOC_MATRIX_MODEL
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_MODEL], matModel);
+
+    // Get model-view matrix
+    matModelView = MatrixMultiply(matModel, matView);
+
+    // Upload model normal matrix (if locations available)
+    if (lightmap_shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(lightmap_shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
+    //-----------------------------------------------------
+
+
+
+
+	int lightmapbinded = 0;
+
+	Material mat;
+	Mesh mesh;
+	int meshId;
+
+	for (int meshi = 0; meshi < mod.meshCount; meshi++)
+    {
+        mat = mod.materials[mod.meshMaterial[meshi]];
+        mesh = mod.meshes[meshi];
+        meshId = meshi;
+
+		if (mat.shader.id != lightmap_shader.id) continue;
+
+		g_triangle = m_triangles + meshi;
+
+		// Bind active texture maps (if available)
+		for (int i = 0; i < 12; i++)
+		{
+
+			if (mat.maps[i].texture.id > 0)
+			{
+				// Select current shader texture slot
+				rlActiveTextureSlot(i);
+
+				// Enable texture for active slot
+				if ((i == MATERIAL_MAP_IRRADIANCE) ||
+					(i == MATERIAL_MAP_PREFILTER) ||
+					(i == MATERIAL_MAP_CUBEMAP)) rlEnableTextureCubemap(mat.maps[i].texture.id);
+				else rlEnableTexture(mat.maps[i].texture.id);
+
+				rlSetUniform(mat.shader.locs[SHADER_LOC_MAP_DIFFUSE + i], &i, SHADER_UNIFORM_INT, 1);
+			}
+		}
+
+	
+		rlEnableVertexArray(mesh.vaoId);
+
+		int eyeCount = 1;
+		if (rlIsStereoRenderEnabled()) eyeCount = 2;
+
+		for (int eye = 0; eye < eyeCount; eye++)
+		{
+			// Calculate model-view-projection matrix (MVP)
+			Matrix matModelViewProjection = MatrixIdentity();
+			if (eyeCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+			else
+			{
+				// Setup current eye viewport (half screen width)
+				rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
+				matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+			}
+
+			// Send combined model-view-projection matrix to shader
+			rlSetUniformMatrix(mat.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
+
+			// Draw mesh
+			if (mesh.indices != NULL && g_triangle != NULL)  {
+				rlUpdateVertexBufferElements(mesh.vboId[RL_DEFAULT_SHADER_ATTRIB_LOCATION_INDICES], g_triangle->indices, g_triangle->trianglecount*3*sizeof(unsigned short), 0);
+				rlDrawVertexArrayElements(0, g_triangle->trianglecount*3, 0);
+				rlCheckErrors();
+			}
+			else rlDrawVertexArray(0, mesh.vertexCount);
+		}
+
+		// Unbind all bound texture maps
+		for (int i = 0; i < 12; i++)
+		{
+			if (i == MATERIAL_MAP_METALNESS) {
+			}
+			if (mat.maps[i].texture.id > 0)
+			{
+				// Select current shader texture slot
+				rlActiveTextureSlot(i);
+
+				// Disable texture for active slot
+				if ((i == MATERIAL_MAP_IRRADIANCE) ||
+					(i == MATERIAL_MAP_PREFILTER) ||
+					(i == MATERIAL_MAP_CUBEMAP)) rlDisableTextureCubemap();
+				else rlDisableTexture();
+			}
+		}
+		
+
+		
+
+		// Disable all possible vertex array objects (or VBOs)
+		rlDisableVertexArray();
+		rlDisableVertexBuffer();
+		rlDisableVertexBufferElement();
+
+		
+	}
+	// Disable shader program
+    rlDisableShader();
+
+	//rlActiveTextureSlot(MATERIAL_MAP_METALNESS);
+	//rlDisableTexture();
+
+    // Restore rlgl internal modelview and projection matrices
+    rlSetMatrixModelview(matView);
+    rlSetMatrixProjection(matProjection);
+    
+}
+
+int compareOffsets(const void* a, const void* b) {
+	int offa = ((offset_count*)a)->offset;
+	int offb = ((offset_count*)b)->offset;
+	return (offa - offb);
+}
+
+/* math */
+typedef float	vec_t;
+typedef vec_t	vec3_t[3];
+
+//
+// view origin
+//
+vec3_t	vup;
+vec3_t	vpn;
+vec3_t	vright;
+vec3_t	r_origin;
+
+mplane_t	frustum[4];
+
+
+//==============================================================================
+//
+// SETUP FRAME
+//
+//==============================================================================
+
+int SignbitsForPlane (mplane_t *out)
+{
+	int	bits, j;
+
+	// for fast box on planeside test
+
+	bits = 0;
+	for (j=0 ; j<3 ; j++)
+	{
+		if (out->normal[j] < 0)
+			bits |= 1<<j;
+	}
+	return bits;
+}
+
+/*
+===============
+TurnVector -- johnfitz
+
+turn forward towards side on the plane defined by forward and side
+if angle = 90, the result will be equal to side
+assumes side and forward are perpendicular, and normalized
+to turn away from side, use a negative angle
+===============
+*/
+void TurnVector (vec3_t out, const vec3_t forward, const vec3_t side, float angle)
+{
+	float scale_forward, scale_side;
+
+	scale_forward = cos( DEG2RAD * angle );
+	scale_side = sin( DEG2RAD * angle );
+
+	out[0] = scale_forward*forward[0] + scale_side*side[0];
+	out[1] = scale_forward*forward[1] + scale_side*side[1];
+	out[2] = scale_forward*forward[2] + scale_side*side[2];
+}
+
+/*
+===============
+R_SetFrustum -- johnfitz -- rewritten
+===============
+*/
+void R_SetFrustum (float fovx, float fovy)
+{
+	int		i;
+
+
+
+	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //left plane
+	TurnVector(frustum[1].normal, vpn, vright, 90 - fovx/2); //right plane
+	TurnVector(frustum[2].normal, vpn, vup, 90 - fovy/2); //bottom plane
+	TurnVector(frustum[3].normal, vpn, vup, fovy/2 - 90); //top plane
+
+	for (i=0 ; i<4 ; i++)
+	{
+		frustum[i].type = PLANE_ANYZ;
+		frustum[i].dist = DotProduct (r_origin, frustum[i].normal); //FIXME: shouldn't this always be zero?
+		frustum[i].signbits = SignbitsForPlane (&frustum[i]);
+	}
+}
+
+/*
+================
+R_BackFaceCull -- johnfitz -- returns true if the surface is facing away from vieworg
+================
+*/
+bool R_BackFaceCull (msurface_t *surf)
+{
+	double dot;
+
+	if (surf->planetype < 3)
+		dot = r_origin[surf->planetype] - surf->planedist;
+	else
+		dot = DotProduct (r_origin, surf->planenorm) - surf->planedist;
+
+	if ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK))
+		return true;
+
+	return false;
+}
+
+/*
+=================
+R_CullBox -- johnfitz -- replaced with new function from lordhavoc
+
+Returns true if the box is completely outside the frustum
+=================
+*/
+bool R_CullBox (float emins[3], float  emaxs[3])
+{
+	int i;
+	mplane_t *p;
+	byte signbits;
+	float vec[3];
+
+	for (i = 0;i < 4;i++)
+	{
+		p = frustum + i;
+		signbits = p->signbits;
+		vec[0] = ((signbits & 1) ? emins : emaxs)[0];
+		vec[1] = ((signbits & 2) ? emins : emaxs)[1];
+		vec[2] = ((signbits & 4) ? emins : emaxs)[2];
+		if (p->normal[0]*vec[0] + p->normal[1]*vec[1] + p->normal[2]*vec[2] < p->dist)
+			return true;
+	}
+	return false;
+}
+
+mleaf_t		*r_viewleaf, *r_oldviewleaf;
+
+static int r_visframecount = 0;
+
+
+void map_draw2(Drawable* drawable)
+{
+	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	if (drawable->modelres.name[0] != '\\') {
+		DrawModel(getModelResource(&drawable->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+		return;
+	}
+	
+	Model mod = getModelResource(&drawable->modelres);
+	//DrawModel(getModelResource(&self->modelres),(Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+	
+	int beforeMark = Hunk_LowMark();
+	vec3_t cameraP = {0};
+	CameraData* camdata = (CameraData*)camera.data;
+	cameraP[0] = -camdata->cam.position.x * INV_MULTI;
+	cameraP[1] = camdata->cam.position.z * INV_MULTI;
+	cameraP[2] = camdata->cam.position.y * INV_MULTI;
+	r_oldviewleaf = r_viewleaf;
+	r_viewleaf = Mod_PointInLeaf(cameraP);
+	
+	
+
+	float r_fovx = camdata->cam.fovy * (float)cv_width.dvaluei / (float)cv_height.dvaluei;
+	float r_fovy = camdata->cam.fovy;
+
+	r_origin[0] = cameraP[0];
+	r_origin[1] = cameraP[1];
+	r_origin[2] = cameraP[2];
+
+	Vector3 fwd = Vector3Normalize(camdata->getForward(&camera));
+	Vector3 up = Vector3Normalize(camdata->cam.up);
+	Vector3 right = Vector3Normalize(camdata->getRight(&camera));
+	vpn[0] = -fwd.x;
+	vpn[1] = fwd.z;
+	vpn[2] = fwd.y;
+
+	vup[0] = -up.x;
+	vup[1] = up.z;
+	vup[2] = up.y;
+
+	vright[0] = -right.x;
+	vright[1] = right.z;
+	vright[2] = right.y;
+	
+	
+	R_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	
+
+	byte* frame_pvs = NULL;
+
+	if (r_oldviewleaf == r_viewleaf) {
+		frame_pvs = mod_decompressed;
+	} else if (r_viewleaf->clusterindex >= 0 && g_mapModel.data_compressedpvs) {
+		frame_pvs = Mod_DecompressVis(g_mapModel.data_compressedpvs + r_viewleaf->clusterindex);
+	} else {
+		frame_pvs = Mod_DecompressVis(NULL);
+	}
+
+	
+	
+
+	r_visframecount++;
+
+	mutable_indices* m_triangles = (mutable_indices*)Hunk_Alloc(mod.meshCount*sizeof(mutable_indices));
+
+	for (int meshi = 0; meshi < mod.meshCount; meshi++) {
+		m_triangles[meshi].trianglecount = 0;
+		m_triangles[meshi].indices = (unsigned short*)Hunk_Alloc(mod.meshes[meshi].triangleCount * 3 * sizeof(unsigned short));
+
+	}
+
+	mutable_indices* triangle;
+	msurface_t* surface;
+	msurface_t** mark;
+	mleaf_t* leaf;
+	Mesh* curr_mesh;
+	int i = 0;
+	int* leafsurfid = NULL;
+	int lid;
+	for (lid = 0, leaf = &(g_mapModel.data_leafs[1]); lid < g_mapModel.num_leafs; lid++, leaf++) {
+		if (frame_pvs[lid>>3] & (1<<(lid&7))) {
+			if (R_CullBox(leaf->mins, leaf->maxs) || leaf->contents == CONTENTS_SKY)
+				continue;
+			
+			for (i = 0, mark = leaf->firstleafsurface; i < leaf->numleafsurfaces; i++, mark++) {
+
+				surface = *mark;
+				if (surface->visframe != r_visframecount && surface->issubmodel_0) {
+					surface->visframe = r_visframecount;
+					
+					if (!R_BackFaceCull (surface)) {
+						triangle = m_triangles + surface->tex_idx;
+						curr_mesh = mod.meshes + surface->tex_idx;
+						memcpy(triangle->indices + (triangle->trianglecount * 3), curr_mesh->indices + (surface->num_firsttriangle * 3), surface->num_triangles * 3 * sizeof(unsigned short));
+						
+						triangle->trianglecount += surface->num_triangles;
+					}
+					
+				}
+			}
+		}
+		
+	}
+
+
+
+
+	
+	Material drawingMaterial;
+	Mesh* drawingMesh;
+	Matrix drawingTransform;
+	int meshId;
+
+	for (int meshi = 0; meshi < mod.meshCount; meshi++)
+    {
+        drawingMaterial = mod.materials[mod.meshMaterial[meshi]];
+        drawingMesh = mod.meshes + meshi;
+        drawingTransform = mod.transform;
+        meshId = meshi;
+        //DrawMesh(mesh, mat, transform);
+
+		if (drawingMaterial.shader.id == lightmap_shader.id) continue;
+
+		if (drawingMaterial.shader.id == skybox_shader.id) {
+			DrawMesh(*drawingMesh, drawingMaterial, drawingTransform);
+			continue;
+		}
+
+		g_triangle = m_triangles + meshi;
+
+        if (g_triangle->trianglecount == 0) continue;
+
+		drawMyMesh(*drawingMesh, drawingMaterial, drawingTransform, 1, 1);
+        
+    }
+	
+	drawMyMap(mod, mod.transform, m_triangles);
+
+
+	Hunk_FreeToLowMark(beforeMark);
 
 }

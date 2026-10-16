@@ -609,9 +609,7 @@ static void b3CollideTask( int startIndex, int endIndex, int workerIndex, void* 
 			continue;
 		}
 
-		// Update contact respecting shape/body order (A,B). Bodies behind awake-set
-		// contacts are always either awake or static - inline b3GetBodySim with that
-		// invariant to skip the cross-TU call and per-call solverSets indirection.
+		// Update contact respecting shape/body order (A,B)
 		b3Body* bodyA = bodies + shapeA->bodyId;
 		b3Body* bodyB = bodies + shapeB->bodyId;
 		bool isStaticA = bodyA->type == b3_staticBody;
@@ -658,6 +656,10 @@ static void b3CollideTask( int startIndex, int endIndex, int workerIndex, void* 
 		if ( ( isFast == false || isMeshContact == false ) && recycleDistance > 0.0f &&
 			 ( contact->flags & b3_relativeTransformValid ) && ( contact->flags & b3_contactRecycleFlag ) )
 		{
+			// The scalar part of b3InvMulQuat is just the quaternion dot product.
+			// cos(relative_angle/2) = scalar(conj(q1) * q2) = dot(q1, q2)
+			// A small relative angle means this value is close to 1. Need to use abs or square
+			// due to double cover.
 			float angleA = b3DotQuat( transformA.q, contact->cachedRotationA );
 			float angleB = b3DotQuat( transformB.q, contact->cachedRotationB );
 			float angularDistance = b3MinFloat( angleA * angleA, angleB * angleB );
@@ -1433,17 +1435,19 @@ void b3World_Draw( b3WorldId worldId, b3DebugDraw* draw, uint64_t maskBits )
 				}
 			}
 
-			if ( draw->drawMass && body->type == b3_dynamicBody )
+			if ( draw->drawMass )
 			{
-				b3Vec3 offset = { 0.05f, 0.05f, 0.05f };
-
 				b3WorldTransform transform = { bodySim->center, bodySim->transform.q };
 				draw->DrawTransformFcn( transform, draw->context );
-				b3Pos p = b3TransformWorldPoint( transform, offset );
 
-				char buffer[32];
-				snprintf( buffer, 32, "%.2f", body->mass );
-				draw->DrawStringFcn( p, buffer, b3_colorWhite, draw->context );
+				if (body->type == b3_dynamicBody)
+				{
+					b3Vec3 offset = { 0.05f, 0.05f, 0.05f };
+					b3Pos p = b3TransformWorldPoint( transform, offset );
+					char buffer[32];
+					snprintf( buffer, 32, "%.2f", body->mass );
+					draw->DrawStringFcn( p, buffer, b3_colorWhite, draw->context );
+				}
 			}
 
 			if ( draw->drawSleep )
@@ -2805,7 +2809,6 @@ void b3World_CollideMover( b3WorldId worldId, b3Pos origin, const b3Capsule* mov
 
 	b3Vec3 r = { mover->radius, mover->radius, mover->radius };
 
-	// Relative box lifted to world float with outward rounding, conservative for the tree
 	b3AABB relBox;
 	relBox.lowerBound = b3Sub( b3Min( mover->center1, mover->center2 ), r );
 	relBox.upperBound = b3Add( b3Max( mover->center1, mover->center2 ), r );
@@ -2822,7 +2825,6 @@ void b3World_CollideMover( b3WorldId worldId, b3Pos origin, const b3Capsule* mov
 
 	if ( world->recording != NULL )
 	{
-		// CollideMover returns void: no treestats tail, just the per-shape plane batches.
 		b3RecPatchU32( &recWriter.buf, recWriter.countOffset, recWriter.hitCount );
 		b3RecQueryCommit( world->recording, b3_recOpQueryCollideMover, &recWriter );
 	}
